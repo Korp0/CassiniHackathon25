@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from services.places import get_nearby_places
 from services.weather import get_weather
 from services.quest_gen import generate_quest, ai_recommendation
@@ -6,6 +7,16 @@ from services.logic import choose_best_quest
 from utils.calc import haversine
 
 app = FastAPI()
+
+# --- CORS Middleware ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # allow all HTTP methods
+    allow_headers=["*"],  # allow all headers
+)
+# ------------------------
 
 @app.get("/generate_quest")
 def generate(lat: float = Query(...), lon: float = Query(...)):
@@ -26,8 +37,8 @@ def generate(lat: float = Query(...), lon: float = Query(...)):
 
 
 @app.post("/complete_quest")
-def complete_quest(req: Request):
-    data = req.json()
+async def complete_quest(req: Request):
+    data = await req.json()
     quest = data.get("quest")
     user_lat = data.get("current_lat")
     user_lon = data.get("current_lon")
