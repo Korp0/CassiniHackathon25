@@ -38,6 +38,17 @@ const questIcon = L.icon({
   popupAnchor: [0, -40],
 });
 
+// Active quest icon (green) using a simple green circle divIcon
+const activeQuestIcon = L.divIcon({
+  className: '',
+  html: `
+    <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+      <div style="width:34px;height:34px;border-radius:9999px;background:#16a34a;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;">✓</div>
+    </div>`,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+});
+
 // Komponent na recentrovanie mapy na hráča
 function RecenterMap({ position }) {
   const map = useMap();
@@ -51,11 +62,21 @@ function RecenterMap({ position }) {
   return null;
 }
 
-const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter = null }) => {
+const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter = null, activeQuest = null }) => {
   const [map, setMap] = useState(null);
   const mapRef = useRef(null);
   const defaultCenter = [48.7164, 21.2611]; // Košice ako default
   const center = mapCenter ? mapCenter : (position ? [position.lat, position.lng] : defaultCenter);
+  
+  // Expose Leaflet map on DOM element for external access
+  useEffect(() => {
+    if (map) {
+      const mapEl = document.querySelector('.leaflet-container');
+      if (mapEl) {
+        mapEl._leaflet_map = map;
+      }
+    }
+  }, [map]);
 
   // Nested controller that uses useMap() so we get the real Leaflet instance
   // as soon as MapContainer mounts. This avoids timing issues with whenCreated.
@@ -180,6 +201,7 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
       return;
     }
 
+
     try {
       if (typeof m.invalidateSize === 'function') {
         m.invalidateSize();
@@ -201,8 +223,7 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
         center={center}
         zoom={15}
         className="w-full h-full"
-        zoomControl={true}
-        zoomControlOptions={{ position: 'bottomright' }}
+        zoomControl={false}
         whenCreated={(m) => {
           setMap(m);
           mapRef.current = m;
@@ -233,15 +254,18 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
         {/* Quest markers */}
         {quests && quests.length > 0 && quests.map((quest, index) => {
           if (!quest.lat || !quest.lon) return null;
-          
+
+          const isActive = activeQuest && (
+            String(activeQuest.place) === String(quest.place) &&
+            Number(activeQuest.lat) === Number(quest.lat) &&
+            Number(activeQuest.lon) === Number(quest.lon)
+          );
+
           return (
             <Marker
               key={index}
               position={[quest.lat, quest.lon]}
-              icon={questIcon}
-              eventHandlers={{
-                click: () => onQuestClick(quest)
-              }}
+              icon={isActive ? activeQuestIcon : questIcon}
             >
               <Popup>
                 <div className="min-w-[200px] p-2">

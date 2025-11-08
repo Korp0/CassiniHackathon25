@@ -7,7 +7,16 @@ export const fetchQuests = async (lat, lon) => {
     const response = await axios.get(`${API_BASE_URL}/generate_quest`, {
       params: { lat, lon }
     });
-    return response.data;
+
+    // Normalize backend response to shape the frontend expects.
+    // Backend currently returns { message, available_quests } while
+    // the frontend expects { all_quests, active_quest, ai_message }
+    const data = response.data || {};
+    const all_quests = data.all_quests || data.available_quests || [];
+    const active_quest = data.active_quest || null;
+    const ai_message = data.ai_message || data.message || '';
+
+    return { ...data, all_quests, active_quest, ai_message };
   } catch (error) {
     console.error('Error fetching quests:', error);
     throw error;
@@ -34,4 +43,35 @@ export const fetchZoneByCode = async (code) => {
     console.error('Error fetching zone by code:', error);
     throw error;
   }
+};
+
+// Mockable startQuest API - prepares for backend activation endpoint
+// Expected response shape: { ok: boolean, message?: string, data?: { weather_ok: boolean } }
+export const startQuest = async (quest) => {
+  // Currently mocked locally. Replace with real API call when backend provides /start_quest
+  // Example real call:
+  // return axios.post(`${API_BASE_URL}/start_quest`, { questId: quest.id }).then(r => r.data);
+
+  // Simple mock logic: if quest.weather exists and temperature < 0 or condition_text contains 'rain' => not ok
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const weather = quest.weather || null;
+      let ok = true;
+      let message = 'Počasie OK. Začínam quest.';
+      if (weather) {
+        const temp = Number(weather.temperature || 0);
+        const cond = String((weather.condition_text || '')).toLowerCase();
+        if (temp <= 0) {
+          ok = false;
+          message = 'Na tejto lokalite je momentálne príliš chladno.';
+        }
+        if (cond.includes('rain') || cond.includes('sneh') || cond.includes('snow') || cond.includes('storm')) {
+          ok = false;
+          message = 'Na tejto lokalite je nepriaznivé počasie (dážď/ sneh). Zváž svoje rozhodnutie.';
+        }
+      }
+
+      resolve({ ok, message, data: { weather_ok: ok } });
+    }, 800); // simulate network delay
+  });
 };

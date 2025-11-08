@@ -4,13 +4,14 @@ import QuestModal from './components/QuestModal';
 import WeatherDisplay from './components/WeatherDisplay';
 import LoadingScreen from './components/LoadingScreen';
 import { useGeolocation } from './hooks/useGeolocation';
-import { fetchQuests, fetchZoneByCode } from './utils/api';
+import { fetchQuests, fetchZoneByCode, startQuest } from './utils/api';
 import StartupModal from './components/StartupModal';
 
 function App() {
   const { position, error: geoError, loading: geoLoading } = useGeolocation();
   const [quests, setQuests] = useState([]);
   const [activeQuest, setActiveQuest] = useState(null);
+  const [activationPending, setActivationPending] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState(null);
   const [weather, setWeather] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
@@ -18,6 +19,7 @@ function App() {
   const [error, setError] = useState(null);
   const [aiMessage, setAiMessage] = useState('');
   const [showModeSelector, setShowModeSelector] = useState(false);
+  const [notification, setNotification] = useState(null); // { text, type }
   
   // Mode: 'default' | 'public' | 'private'
   const [mode, setMode] = useState('default');
@@ -37,12 +39,35 @@ function App() {
         if (data.error) {
           setError(data.error);
         } else {
-          setQuests(data.all_quests || []);
-          setActiveQuest(data.active_quest);
+          const incoming = data.all_quests || [];
+
+          // If we already have an activeQuest locally, preserve it and mark matching incoming quest
+          if (activeQuest) {
+            const merged = incoming.map(q => ({
+              ...q,
+              __active: (
+                String(q.place) === String(activeQuest.place) &&
+                Number(q.lat) === Number(activeQuest.lat) &&
+                Number(q.lon) === Number(activeQuest.lon)
+              )
+            }));
+            setQuests(merged);
+          } else {
+            // No local active quest: adopt backend active if provided
+            if (data.active_quest) {
+              setActiveQuest(data.active_quest);
+            }
+            const merged = incoming.map(q => ({
+              ...q,
+              __active: (data.active_quest && String(q.place) === String(data.active_quest.place) && Number(q.lat) === Number(data.active_quest.lat) && Number(q.lon) === Number(data.active_quest.lon))
+            }));
+            setQuests(merged);
+          }
+
           setAiMessage(data.ai_message);
-          
-          // Nastavenie počasia z aktívneho questu
-          if (data.active_quest?.weather) {
+
+          // Nastavenie počasia z aktívneho questu (only if we don't have our own active)
+          if (!activeQuest && data.active_quest?.weather) {
             setWeather(data.active_quest.weather);
           }
         }
@@ -97,13 +122,72 @@ function App() {
 
   // Handler pre exit z módu
   const handleExitMode = () => {
+    // Switch back to default mode and clear mode-specific state
     setMode('default');
     setQuests([]);
     setActiveQuest(null);
     setWeather(null);
     setAiMessage('');
-    setMapCenter(null);
+    // Recenter map to player's current position if available so the user sees their location
+    if (position && position.lat != null && position.lng != null) {
+      setMapCenter([position.lat, position.lng]);
+    } else {
+      setMapCenter(null);
+    }
     setError(null);
+  };
+
+  // Start (activate) a quest: call backend (mock) to check suitability (weather)
+  const handleStartQuest = async (quest) => {
+    setActivationPending(true);
+    setError(null);
+    setAiMessage('Overujem vhodnosť miesta...');
+    try {
+      const res = await startQuest(quest);
+      if (res && res.ok) {
+        setActiveQuest(quest);
+        setAiMessage(res.message || `Aktívny quest: ${quest.place}`);
+        // notify user
+        setNotification({ text: `Začal si quest: ${quest.place}`, type: 'success' });
+        setTimeout(() => setNotification(null), 4500);
+        // mark in list
+        setQuests(prev => prev.map(q => ({ ...q, __active: (
+          String(q.place) === String(quest.place) && Number(q.lat) === Number(quest.lat) && Number(q.lon) === Number(quest.lon)
+        ) })));
+      } else {
+        // Not OK: show message and offer to force-start
+        const msg = (res && res.message) || 'Nepriaznivé podmienky.';
+        setError(msg);
+        // Offer user to continue anyway
+        const force = window.confirm(msg + '\nChceš napriek tomu začať quest?');
+        if (force) {
+          setActiveQuest(quest);
+          setAiMessage(`Aktívny quest (force): ${quest.place}`);
+          setQuests(prev => prev.map(q => ({ ...q, __active: (
+            String(q.place) === String(quest.place) && Number(q.lat) === Number(quest.lat) && Number(q.lon) === Number(quest.lon)
+          ) })));
+          setNotification({ text: `Začal si quest (force): ${quest.place}`, type: 'warning' });
+          setTimeout(() => setNotification(null), 4500);
+        }
+      }
+    } catch (err) {
+      console.error('Error starting quest:', err);
+      setError('Chyba pri aktivácii questu. Skús znova.');
+    } finally {
+      setActivationPending(false);
+    }
+  };
+
+  // Complete active quest
+  const handleCompleteQuest = () => {
+    if (!activeQuest) return;
+    const name = activeQuest.place;
+    // clear active
+    setActiveQuest(null);
+    // remove __active flags
+    setQuests(prev => prev.map(q => ({ ...q, __active: false })));
+    setNotification({ text: `Dokončil si quest: ${name}`, type: 'success' });
+    setTimeout(() => setNotification(null), 4500);
   };
 
   // Loading screen
@@ -167,75 +251,110 @@ function App() {
         onQuestClick={setSelectedQuest}
         centerOnPlayer={false}
         mapCenter={mapCenter}
+        activeQuest={activeQuest}
       />
 
   {/* Weather Display */}
   {weather && <WeatherDisplay weather={weather} position={position} />}
 
-      {/* AI Message Banner */}
-      {aiMessage && (
-        <div className="fixed left-1/2 -translate-x-1/2 top-20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 rounded-full shadow-xl z-[99999] flex items-center gap-3 max-w-[90%] animate-slideDown">
-          <div className="text-2xl">🤖</div>
-          <p className="text-sm font-medium leading-snug">{aiMessage}</p>
+      {/* Notification Banner (shows briefly when something happens) */}
+      {notification && (
+        <div className={`fixed left-1/2 -translate-x-1/2 top-20 ${notification.type === 'success' ? 'bg-gradient-to-r from-green-600 to-emerald-500' : notification.type === 'warning' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'bg-gradient-to-r from-indigo-600 to-purple-600'} text-white px-5 py-3 rounded-full shadow-xl z-[100000] flex items-center gap-3 max-w-[90%] animate-slideDown`}>
+          <div className="text-2xl">{notification.type === 'success' ? '✅' : notification.type === 'warning' ? '⚠️' : 'ℹ️'}</div>
+          <p className="text-sm font-medium leading-snug">{notification.text}</p>
         </div>
       )}
 
-      {/* Mode Control Buttons */}
-      {mode === 'default' && (
+      {/* Control row - mobile-first horizontal layout just above bottom panel */}
+      <div className="fixed right-4 bottom-[140px] z-[100001] flex items-center gap-2">
+        {/* Zoom In */}
         <button
-          onClick={() => setShowModeSelector(true)}
-          className="fixed right-4 bottom-60 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-full shadow-xl z-[99999] transform transition hover:scale-110 active:scale-100"
+          onClick={() => {
+            const mapEl = document.querySelector('.leaflet-container');
+            if (mapEl && mapEl._leaflet_map) {
+              mapEl._leaflet_map.zoomIn();
+            }
+          }}
+          className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-xl text-gray-700 border border-gray-200 hover:scale-105 transition"
+          aria-label="Zoom in"
         >
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🚀</span>
-            <span>Explore</span>
-          </div>
+          +
         </button>
-      )}
-      
-      {(mode === 'public' || mode === 'private') && (
-        <>
-          {/* Exit Mode Button */}
+        
+        {/* Zoom Out */}
+        <button
+          onClick={() => {
+            const mapEl = document.querySelector('.leaflet-container');
+            if (mapEl && mapEl._leaflet_map) {
+              mapEl._leaflet_map.zoomOut();
+            }
+          }}
+          className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-xl text-gray-700 border border-gray-200 hover:scale-105 transition"
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        
+        {/* Mode-specific buttons */}
+        {mode === 'default' ? (
           <button
-            onClick={handleExitMode}
-            className="fixed right-4 bottom-60 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-6 rounded-full shadow-xl z-[99999] transform transition hover:scale-110 active:scale-100"
+            onClick={() => setShowModeSelector(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl shadow-lg px-3 h-11 transition"
           >
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🚪</span>
-              <span>Exit</span>
-            </div>
+            <span className="text-lg">🚀</span>
+            <span className="hidden sm:inline font-semibold text-sm">Explore</span>
           </button>
-          
-          {/* Refresh Button (only in public mode) */}
-          {mode === 'public' && (
+        ) : (
+          <>
+            {/* Exit - icon only on mobile, icon + text on sm+ */}
             <button
-              className="fixed right-4 bottom-80 w-14 h-14 bg-white border-2 border-gray-200 rounded-full shadow-xl flex items-center justify-center text-2xl z-[99999] hover:scale-110 hover:rotate-90 active:scale-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              onClick={() => {
-                if (position) {
-                  setLoading(true);
-                  fetchQuests(position.lat, position.lng)
-                    .then(data => {
-                      setQuests(data.all_quests || []);
-                      setActiveQuest(data.active_quest);
-                      setAiMessage(data.ai_message);
-                      if (data.active_quest?.weather) {
-                        setWeather(data.active_quest.weather);
-                      }
-                    })
-                    .catch(err => {
-                      console.error('Error refreshing quests:', err);
-                      setError('Nepodarilo sa obnoviť questy.');
-                    })
-                    .finally(() => setLoading(false));
-                }
-              }}
-              disabled={loading}
+              onClick={handleExitMode}
+              className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl shadow-lg px-3 h-11 transition"
             >
-              {loading ? '⏳' : '🔄'}
+              <span className="text-lg">🚪</span>
+              <span className="hidden sm:inline font-semibold text-sm">Exit</span>
             </button>
-          )}
-        </>
-      )}
+            
+            {/* Refresh - only in public mode */}
+            {mode === 'public' && (
+              <button
+                onClick={() => {
+                  if (position) {
+                    setLoading(true);
+                    fetchQuests(position.lat, position.lng)
+                      .then(data => {
+                        const incoming = data.all_quests || [];
+                        if (activeQuest) {
+                          const merged = incoming.map(q => ({ ...q, __active: (
+                            String(q.place) === String(activeQuest.place) && Number(q.lat) === Number(activeQuest.lat) && Number(q.lon) === Number(activeQuest.lon)
+                          ) }));
+                          setQuests(merged);
+                        } else {
+                          if (data.active_quest) setActiveQuest(data.active_quest);
+                          const merged = incoming.map(q => ({ ...q, __active: (data.active_quest && String(q.place) === String(data.active_quest.place) && Number(q.lat) === Number(data.active_quest.lat) && Number(q.lon) === Number(data.active_quest.lon)) }));
+                          setQuests(merged);
+                        }
+                        setAiMessage(data.ai_message);
+                        if (!activeQuest && data.active_quest?.weather) {
+                          setWeather(data.active_quest.weather);
+                        }
+                      })
+                      .catch(err => {
+                        console.error('Error refreshing quests:', err);
+                        setError('Nepodarilo sa obnoviť questy.');
+                      })
+                      .finally(() => setLoading(false));
+                  }
+                }}
+                disabled={loading}
+                className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-lg text-gray-700 border border-gray-200 hover:scale-105 transition disabled:opacity-50"
+              >
+                {loading ? '⏳' : '🔄'}
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Mode Indicator & Quest Count */}
       <div className="fixed top-5 left-5 flex flex-col gap-2 z-[99999]">
@@ -280,6 +399,7 @@ function App() {
         <QuestModal
           quest={selectedQuest}
           onClose={() => setSelectedQuest(null)}
+          onStart={(q) => handleStartQuest(q)}
         />
       )}
 
@@ -291,12 +411,28 @@ function App() {
             {position ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Získavam polohu...'}
           </span>
         </div>
-        {activeQuest && (
+        {activationPending ? (
+          <div className="flex items-center gap-3 bg-yellow-200 text-yellow-900 rounded-lg px-3 py-2">
+            <span className="text-lg">⏳</span>
+            <span className="text-sm font-semibold">Aktivujem quest...</span>
+          </div>
+        ) : activeQuest ? (
           <div className="flex items-center gap-3 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-lg px-3 py-2">
             <span className="text-lg">⭐</span>
-            <span className="text-sm font-bold flex-1 truncate">
-              Aktívny: {activeQuest.place}
-            </span>
+            <span className="text-sm font-bold flex-1 truncate">Aktívny: {activeQuest.place}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCompleteQuest}
+                className="ml-2 bg-white/90 text-amber-600 hover:bg-white px-3 py-1 rounded-lg font-semibold text-sm shadow-sm"
+              >
+                Dokončiť
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 bg-white/90 rounded-lg px-3 py-2">
+            <span className="text-lg">ℹ️</span>
+            <span className="text-sm text-gray-700">Zatiaľ nič nezvolené</span>
           </div>
         )}
       </div>
