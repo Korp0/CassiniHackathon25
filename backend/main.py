@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from services.places import get_nearby_places
 from services.weather import get_weather
 from services.quest_gen import generate_quest, ai_recommendation
@@ -8,15 +9,26 @@ from utils.calc import haversine
 
 app = FastAPI()
 
-# --- CORS Middleware ---
+# CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # allow all HTTP methods
-    allow_headers=["*"],  # allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-# ------------------------
+
+class Quest(BaseModel):
+    lat: float
+    lon: float
+    place: str
+    reward: str
+
+class CompleteQuestRequest(BaseModel):
+    quest: Quest
+    current_lat: float
+    current_lon: float
+
 
 @app.get("/generate_quest")
 def generate(lat: float = Query(...), lon: float = Query(...)):
@@ -25,8 +37,6 @@ def generate(lat: float = Query(...), lon: float = Query(...)):
         return {"error": "No places found nearby"}
 
     quests = [generate_quest(p) for p in places[:3]]
-    print(quests)
-
     for q in quests:
         q["weather"] = get_weather(q["lat"], q["lon"])
 
@@ -37,21 +47,19 @@ def generate(lat: float = Query(...), lon: float = Query(...)):
 
 
 @app.post("/complete_quest")
-async def complete_quest(req: Request):
-    data = await req.json()
-    quest = data.get("quest")
-    user_lat = data.get("current_lat")
-    user_lon = data.get("current_lon")
-
-    q_lat = quest["lat"]
-    q_lon = quest["lon"]
+def complete_quest(data: CompleteQuestRequest):
+    quest = data.quest
+    user_lat = data.current_lat
+    user_lon = data.current_lon
+    q_lat = quest.lat
+    q_lon = quest.lon
 
     distance = haversine(user_lat, user_lon, q_lat, q_lon)
 
     if distance < 100:
         return {
             "status": "completed",
-            "message": f"You completed {quest['place']} and earned {quest['reward']}!"
+            "message": f"You completed {quest.place} and earned {quest.reward}!"
         }
     else:
         return {
