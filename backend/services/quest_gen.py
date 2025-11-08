@@ -96,7 +96,7 @@ def check_quest_weather_and_recommend(quest):
     code = weather.get("weathercode", 0)
     condition = weather.get("condition_text", "unknown")
 
-    bad_weather_codes = [3, 61, 63, 65, 66, 67, 71, 73, 75, 80, 81, 82, 85, 86, 95, 96, 99]
+    bad_weather_codes = [61, 63, 65, 66, 67, 71, 73, 75, 80, 81, 82, 85, 86, 95, 96, 99]
 
     # 🌧️ If weather bad and quest is outdoor
     if quest.get("indoor_outdoor") == "outdoor" and code in bad_weather_codes:

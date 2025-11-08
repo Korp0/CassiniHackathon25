@@ -66,17 +66,43 @@ def get_weather_multiplier(code: int) -> float:
 
 
 def apply_reward_multiplier(reward_str: str, multiplier: float) -> dict:
-    """Apply multiplier to reward like '40 XP'."""
+    """Apply multiplier to reward like '40 XP', and calculate GeoBucks reward."""
     try:
         base_xp = int(reward_str.split()[0])
     except Exception:
         base_xp = 20
+
     final_xp = int(base_xp * multiplier)
+    geobucks = max(1, int(final_xp / 10))  # 💸 1 GeoBuck per 10 XP, always min 1
+
+
     return {
         "base_reward": f"{base_xp} XP",
         "multiplier": round(multiplier, 2),
-        "final_reward": f"{final_xp} XP"
+        "final_reward": f"{final_xp} XP",
+        "geobucks_reward": geobucks
     }
+
+
+def calculate_geobucks(weather):
+    """Determine GeoBucks reward based on air quality and weather difficulty."""
+    air = weather.get("air_quality", {})
+    status = air.get("status", "unknown")
+
+    base_reward = 1  # baseline GeoBuck for any completed quest
+
+    if status == "good":
+        # Clean air — small eco bonus 🌿
+        return base_reward + 1
+    elif status == "moderate":
+        # Normal — steady reward
+        return base_reward
+    elif status in ["bad", "very bad"]:
+        # Pollution challenge bonus 🌫️
+        return int(base_reward * 2)
+    else:
+        return base_reward
+
 
 
 # === GAME STATE ===
@@ -87,6 +113,7 @@ player = {
     "name": "Traveler",
     "level": 1,
     "xp": 0,
+    "geobucks": 0,  # 💸 in-game currency
     "active_quest": None
 }
 
@@ -225,6 +252,9 @@ def complete_quest_by_qr(
 
                 if distance < 25:
                     leveled_up = add_xp(player, xp_gained)
+                    geobucks_gained = reward_info.get("geobucks_reward", 0)
+                    player["geobucks"] += geobucks_gained
+
                     return {
                         "status": "completed",
                         "message": (
@@ -238,7 +268,9 @@ def complete_quest_by_qr(
                         "new_level": player["level"],
                         "current_xp": player["xp"],
                         "leveled_up": leveled_up,
-                        "distance_m": round(distance, 1)
+                        "distance_m": round(distance, 1),
+                        "geobucks_gained": geobucks_gained,
+                        "total_geobucks": player["geobucks"],
                     }
                 else:
                     return {
@@ -322,7 +354,7 @@ def complete_active_quest(
     current_lat: float = Query(...),
     current_lon: float = Query(...)
 ):
-    """Mark player's active quest as completed and add XP if close enough."""
+    """Mark player's active quest as completed and add XP + GeoBucks if close enough."""
     if not player["active_quest"]:
         return {"error": "No active quest assigned."}
 
@@ -340,24 +372,41 @@ def complete_active_quest(
             "distance_m": round(distance, 1)
         }
 
-    # Reward logic
+    # Fetch live weather (with air quality)
+    weather = get_weather(q_lat, q_lon)
+    quest["weather"] = weather
+
+    # Reward logic (XP)
     try:
         xp = int(quest["reward"].split()[0])
     except Exception:
         xp = 20
 
     leveled_up = add_xp(player, xp)
+
+    # 💰 Calculate GeoBucks based on environment
+    geobucks_gained = calculate_geobucks(weather)
+    player["geobucks"] += geobucks_gained
+
+    # Reset quest
     player["active_quest"] = None
 
     return {
         "status": "completed",
         "xp_gained": xp,
+        "geobucks_gained": geobucks_gained,
         "new_level": player["level"],
         "current_xp": player["xp"],
+        "total_geobucks": player["geobucks"],
         "leveled_up": leveled_up,
-        "message": f"You completed '{quest['place']}' and earned {xp} XP!",
+        "weather": weather,
+        "message": (
+            f"You completed '{quest['place']}' and earned {xp} XP "
+            f"+ {geobucks_gained} GeoBucks!"
+        ),
         "distance_m": round(distance, 1)
     }
+
 
 
 @app.get("/check_weather_for_quest")
@@ -379,3 +428,37 @@ def check_weather_for_quest(quest_id: str):
         result["added_to_available_quests"] = True
 
     return result
+
+
+@app.get("/shop")
+def get_shop():
+    """Simple GeoBucks shop."""
+    return {
+        "items": [
+            {"name": "AI Travel Hint", "cost": 10},
+            {"name": "Weather Immunity (1 quest)", "cost": 25},
+            {"name": "Unlock Hidden Quest", "cost": 50},
+            {"name": "Exclusive Explorer Badge", "cost": 100}
+        ]
+    }
+
+@app.post("/buy_item")
+def buy_item(item_name: str = Query(...)):
+    """Buy virtual items using GeoBucks."""
+    shop = {
+        "AI Travel Hint": 10,
+        "Weather Immunity (1 quest)": 25,
+        "Unlock Hidden Quest": 50,
+        "Exclusive Explorer Badge": 100
+    }
+    cost = shop.get(item_name)
+    if not cost:
+        return {"error": "Item not found"}
+    if player["geobucks"] < cost:
+        return {"error": "Not enough GeoBucks"}
+
+    player["geobucks"] -= cost
+    return {
+        "message": f"You purchased {item_name}!",
+        "remaining_geobucks": player["geobucks"]
+    }
