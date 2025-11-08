@@ -5,6 +5,7 @@ import WeatherDisplay from './components/WeatherDisplay';
 import LoadingScreen from './components/LoadingScreen';
 import { useGeolocation } from './hooks/useGeolocation';
 import { fetchQuests, fetchZoneByCode, startQuest } from './utils/api';
+import ProfileModal from './components/ProfileModal';
 import StartupModal from './components/StartupModal';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
   const [aiMessage, setAiMessage] = useState('');
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [notification, setNotification] = useState(null); // { text, type }
+  const [showProfile, setShowProfile] = useState(false);
   
   // Mode: 'default' | 'public' | 'private'
   const [mode, setMode] = useState('default');
@@ -263,6 +265,21 @@ function App() {
           <div className="text-2xl">{notification.type === 'success' ? '✅' : notification.type === 'warning' ? '⚠️' : 'ℹ️'}</div>
           <p className="text-sm font-medium leading-snug">{notification.text}</p>
         </div>
+      )}
+
+      {/* Player profile button (opens simple profile modal) */}
+      <div className="fixed top-5 right-5 z-[100001]">
+        <button
+          onClick={() => setShowProfile(true)}
+          className="w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center text-lg border border-gray-200"
+          aria-label="Open profile"
+        >
+          👤
+        </button>
+      </div>
+
+      {showProfile && (
+        <ProfileModal onClose={() => setShowProfile(false)} />
       )}
 
       {/* Control row - mobile-first horizontal layout just above bottom panel */}

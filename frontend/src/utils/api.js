@@ -33,6 +33,16 @@ export const getAIGuide = async (quest) => {
   }
 };
 
+export const getPlayer = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/player`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching player:', error);
+    throw error;
+  }
+};
+
 export const fetchZoneByCode = async (code) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/scan_qr`, {
