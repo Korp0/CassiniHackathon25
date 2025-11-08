@@ -8,6 +8,8 @@ import { fetchQuests, fetchZoneByCode, startQuest, setActiveQuest as apiSetActiv
 import ProfileModal from './components/ProfileModal';
 import ShopModal from './components/ShopModal';
 import StartupModal from './components/StartupModal';
+import { FiUser, FiShoppingCart, FiMap, FiCamera, FiCompass, FiMapPin, FiCheckCircle, FiAlertTriangle, FiInfo, FiClock, FiRefreshCw, FiLogOut, FiStar, FiX } from 'react-icons/fi';
+import { FaBullseye } from 'react-icons/fa';
 
 function App() {
   const { position, error: geoError, loading: geoLoading } = useGeolocation();
@@ -330,7 +332,7 @@ function App() {
                 onClick={() => handleModeSelect('public')}
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95"
               >
-                <div className="text-4xl mb-2">🗺️</div>
+                  <div className="text-4xl mb-2"><FiMap className="inline" /></div>
                 <div className="text-lg">Verejný mód</div>
                 <div className="text-sm opacity-90">Body v blízkosti</div>
               </button>
@@ -346,7 +348,7 @@ function App() {
                   }}
                   className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95"
                 >
-                  <div className="text-4xl mb-2">📷</div>
+                    <div className="text-4xl mb-2"><FiCamera className="inline" /></div>
                   <div className="text-lg">Súkromný mód</div>
                   <div className="text-sm opacity-90">Scan QR kód</div>
                 </button>
@@ -383,7 +385,7 @@ function App() {
       {/* Notification Banner (shows briefly when something happens) */}
       {notification && (
         <div className={`fixed left-1/2 -translate-x-1/2 top-20 ${notification.type === 'success' ? 'bg-gradient-to-r from-green-600 to-emerald-500' : notification.type === 'warning' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'bg-gradient-to-r from-indigo-600 to-purple-600'} text-white px-5 py-3 rounded-full shadow-xl z-[100000] flex items-center gap-3 max-w-[90%] animate-slideDown`}>
-          <div className="text-2xl">{notification.type === 'success' ? '✅' : notification.type === 'warning' ? '⚠️' : 'ℹ️'}</div>
+            <div className="text-2xl">{notification.type === 'success' ? <FiCheckCircle /> : notification.type === 'warning' ? <FiAlertTriangle /> : <FiInfo />}</div>
           <p className="text-sm font-medium leading-snug">{notification.text}</p>
         </div>
       )}
@@ -395,19 +397,19 @@ function App() {
           className="w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center text-lg border border-gray-200"
           aria-label="Open profile"
         >
-          👤
+            <FiUser />
         </button>
       </div>
 
-      {/* Shop floating button */}
-      <div className="fixed top-5 right-20 z-[100001]">
+      {/* Shop floating button (stacked under profile) */}
+      <div className="fixed top-20 right-5 z-[100001]">
         <button
           onClick={() => setShowShop(true)}
           className="w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center text-lg border border-gray-200"
           aria-label="Open shop"
           title="Obchod"
         >
-          🛒
+            <FiShoppingCart />
         </button>
       </div>
 
@@ -469,7 +471,7 @@ function App() {
           className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-lg text-gray-700 border border-gray-200 hover:scale-105 transition disabled:opacity-50"
           aria-label="Center on player"
         >
-          📍
+            <FiMapPin />
         </button>
         
         {/* Mode-specific buttons */}
@@ -478,7 +480,7 @@ function App() {
             onClick={() => setShowModeSelector(true)}
             className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl shadow-lg px-3 h-11 transition"
           >
-            <span className="text-lg">🚀</span>
+              <span className="text-lg"><FiCompass /></span>
             <span className="hidden sm:inline font-semibold text-sm">Explore</span>
           </button>
         ) : (
@@ -488,7 +490,7 @@ function App() {
               onClick={handleExitMode}
               className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl shadow-lg px-3 h-11 transition"
             >
-              <span className="text-lg">🚪</span>
+                <span className="text-lg"><FiLogOut /></span>
               <span className="hidden sm:inline font-semibold text-sm">Exit</span>
             </button>
             
@@ -526,7 +528,7 @@ function App() {
                 disabled={loading}
                 className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-lg text-gray-700 border border-gray-200 hover:scale-105 transition disabled:opacity-50"
               >
-                {loading ? '⏳' : '🔄'}
+                  {loading ? <FiClock /> : <FiRefreshCw />}
               </button>
             )}
           </>
@@ -542,7 +544,7 @@ function App() {
           'border-2 border-purple-400'
         }`}>
           <span className="text-xl">
-            {mode === 'default' ? '🧭' : mode === 'public' ? '🗺️' : '📷'}
+              {mode === 'default' ? <FiCompass /> : mode === 'public' ? <FiMap /> : <FiCamera />}
           </span>
           <span className="font-bold text-sm text-gray-900">
             {mode === 'default' ? 'Browse' : mode === 'public' ? 'Public' : 'Private'}
@@ -551,9 +553,9 @@ function App() {
         
         {/* Quest Count (only if quests exist) */}
         {quests.length > 0 && (
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2.5 flex items-center gap-2 shadow-lg">
-            <span className="text-xl">🎯</span>
-            <span className="font-bold text-sm text-gray-900">{quests.length} questov</span>
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2.5 flex items-center gap-2 shadow-lg">
+              <span className="text-xl"><FaBullseye /></span>
+              <span className="font-bold text-sm text-gray-900">{quests.length} questov</span>
           </div>
         )}
       </div>
@@ -561,7 +563,7 @@ function App() {
       {/* Error Banner */}
       {error && (
         <div className="fixed left-1/2 -translate-x-1/2 top-5 bg-red-500 text-white px-5 py-3 rounded-xl flex items-center gap-4 shadow-xl z-[100000] max-w-[90%]">
-          <span className="text-sm font-medium">⚠️ {error}</span>
+          <span className="text-sm font-medium"><FiAlertTriangle /> {error}</span>
           <button 
             className="text-white hover:bg-white/20 rounded-full w-6 h-6 flex items-center justify-center transition-colors" 
             onClick={() => setError(null)}
@@ -583,7 +585,7 @@ function App() {
       {/* Bottom Info Bar */}
       <div className="fixed bottom-0 left-0 w-full bg-white/98 backdrop-blur-sm border-t border-gray-200 py-3 px-5 flex flex-col gap-2 z-[100000] shadow-2xl">
         <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
-          <span className="text-lg">📍</span>
+          <span className="text-lg"><FiMapPin /></span>
           <span className="text-sm text-gray-800 font-medium flex-1 truncate">
             {position ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Získavam polohu...'}
           </span>
@@ -595,20 +597,21 @@ function App() {
           </div>
         ) : activeQuest ? (
           <div className="flex items-center gap-3 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-lg px-3 py-2">
-            <span className="text-lg">⭐</span>
+            <FiStar className="text-lg text-white" />
             <span className="text-sm font-bold flex-1 truncate">Aktívny: {activeQuest.place}</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCompleteQuest}
-                className="ml-2 bg-white/90 text-amber-600 hover:bg-white px-3 py-1 rounded-lg font-semibold text-sm shadow-sm"
+                className="ml-2 bg-white/90 text-amber-600 hover:bg-white px-3 py-1 rounded-lg font-semibold text-sm shadow-sm flex items-center gap-2"
               >
-                Dokončiť
+                <FiCheckCircle className="text-amber-600" />
+                <span>Dokončiť</span>
               </button>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-3 bg-white/90 rounded-lg px-3 py-2">
-            <span className="text-lg">ℹ️</span>
+            <FiInfo className="text-lg text-gray-700" />
             <span className="text-sm text-gray-700">Zatiaľ nič nezvolené</span>
           </div>
         )}

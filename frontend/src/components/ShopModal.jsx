@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { getShop, buyShopItem } from '../utils/api';
+import { FaRobot, FaAward, FaBox } from 'react-icons/fa';
+import { FiCloud, FiMap, FiX } from 'react-icons/fi';
 
-function emojiFor(name) {
-  if (!name) return '📦';
-  if (name.toLowerCase().includes('ai')) return '🤖';
-  if (name.toLowerCase().includes('weather')) return '☂️';
-  if (name.toLowerCase().includes('unlock') || name.toLowerCase().includes('hidden')) return '🗺️';
-  if (name.toLowerCase().includes('badge') || name.toLowerCase().includes('exclusive')) return '🏅';
-  return '✨';
+function iconFor(name) {
+  if (!name) return <FaBox />;
+  const n = name.toLowerCase();
+  if (n.includes('ai')) return <FaRobot />;
+  if (n.includes('weather')) return <FiCloud />;
+  if (n.includes('unlock') || n.includes('hidden')) return <FiMap />;
+  if (n.includes('badge') || n.includes('exclusive')) return <FaAward />;
+  return <FaBox />;
 }
 
 export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks = 0 }) {
@@ -61,7 +64,7 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
       <div className="bg-white rounded-xl w-full max-w-2xl p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">Obchod</h3>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-900">✕</button>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-900"><FiX /></button>
         </div>
 
         <div className="mt-4">
@@ -80,7 +83,7 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
               return (
                 <div key={idx} className="p-3 bg-gray-50 rounded flex flex-col justify-between h-full">
                   <div className="flex items-center gap-3 w-full">
-                    <div className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-2xl shadow-sm">{emojiFor(it.name)}</div>
+                    <div className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-2xl shadow-sm">{iconFor(it.name)}</div>
                     <div className="flex-1">
                       <div className="font-medium">{it.name}</div>
                       <div className="text-xs text-gray-500 flex items-center">

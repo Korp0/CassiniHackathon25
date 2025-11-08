@@ -1,15 +1,17 @@
+import { WiDaySunny, WiCloud, WiRain, WiSnow, WiFog, WiThunderstorm, WiDayCloudy } from 'react-icons/wi';
+
 const WeatherDisplay = ({ weather, position }) => {
   if (!weather) return null;
 
   const getWeatherIcon = (condition) => {
-    const conditionLower = condition.toLowerCase();
-    if (conditionLower.includes('clear') || conditionLower.includes('sunny')) return '☀️';
-    if (conditionLower.includes('cloud')) return '☁️';
-    if (conditionLower.includes('rain') || conditionLower.includes('drizzle')) return '🌧️';
-    if (conditionLower.includes('snow')) return '❄️';
-    if (conditionLower.includes('fog')) return '🌫️';
-    if (conditionLower.includes('thunder')) return '⛈️';
-    return '🌤️';
+    const conditionLower = (condition || '').toLowerCase();
+    if (conditionLower.includes('clear') || conditionLower.includes('sunny')) return <WiDaySunny />;
+    if (conditionLower.includes('cloud')) return <WiCloud />;
+    if (conditionLower.includes('rain') || conditionLower.includes('drizzle')) return <WiRain />;
+    if (conditionLower.includes('snow')) return <WiSnow />;
+    if (conditionLower.includes('fog')) return <WiFog />;
+    if (conditionLower.includes('thunder')) return <WiThunderstorm />;
+    return <WiDayCloudy />;
   };
 
   return (

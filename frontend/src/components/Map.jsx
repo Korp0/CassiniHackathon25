@@ -1,5 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState, useRef } from 'react';
+import { FiMapPin } from 'react-icons/fi';
+import { FaBullseye } from 'react-icons/fa';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -265,8 +267,8 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
         {position && (
           <Marker position={[position.lat, position.lng]} icon={playerIcon}>
             <Popup>
-              <div className="min-w-[200px] p-2">
-                <strong className="block text-base mb-2">📍 Tvoja poloha</strong>
+                <div className="min-w-[200px] p-2">
+                <strong className="block text-base mb-2"><FiMapPin className="inline mr-2"/>Tvoja poloha</strong>
                 <p className="text-sm text-gray-600 my-1">Lat: {position.lat.toFixed(5)}</p>
                 <p className="text-sm text-gray-600 my-1">Lng: {position.lng.toFixed(5)}</p>
               </div>
@@ -298,7 +300,7 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
             >
               <Popup>
                 <div className="min-w-[200px] p-2">
-                  <strong className="block text-base mb-1">🎯 {quest.place}</strong>
+                  <strong className="block text-base mb-1"><FaBullseye className="inline mr-2"/> {quest.place}</strong>
                   <p className="text-sm text-gray-600 my-1">{quest.goal}</p>
                   <button 
                     className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg font-medium transition-colors"
