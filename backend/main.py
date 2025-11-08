@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from io import BytesIO
 import qrcode
 import os
+from uuid import uuid4  # ✅ for quest IDs
 
 # === Services ===
 from services.places import get_nearby_places
@@ -27,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # === MODELS ===
 class Quest(BaseModel):
     lat: float
@@ -44,10 +44,7 @@ class CompleteQuestRequest(BaseModel):
 
 # === HELPERS ===
 def get_weather_multiplier(code: int) -> float:
-    """
-    Return reward multiplier based on the Open-Meteo weather code.
-    1.0 = normal reward, higher = bad weather bonus
-    """
+    """Return reward multiplier based on weather code."""
     if code in [0, 1, 2]:  # clear / partly cloudy
         return 1.0
     if code in [3]:  # overcast
@@ -68,7 +65,7 @@ def get_weather_multiplier(code: int) -> float:
 
 
 def apply_reward_multiplier(reward_str: str, multiplier: float) -> dict:
-    """Apply multiplier to reward like '40 XP' and return structured info."""
+    """Apply multiplier to reward like '40 XP'."""
     try:
         base_xp = int(reward_str.split()[0])
     except Exception:
@@ -81,14 +78,48 @@ def apply_reward_multiplier(reward_str: str, multiplier: float) -> dict:
     }
 
 
-# === PUBLIC (AI-GENERATED) QUESTS ===
+# === GAME STATE ===
+current_public_quests = []
+
+player = {
+    "id": 1,
+    "name": "Traveler",
+    "level": 1,
+    "xp": 0,
+    "active_quest": None
+}
+
+
+def xp_for_next_level(level: int) -> int:
+    """XP needed to reach the next level."""
+    return 100 + (level - 1) * 50
+
+
+def add_xp(player, xp_gained: int):
+    """Add XP, handle level-up logic."""
+    player["xp"] += xp_gained
+    leveled_up = False
+    while player["xp"] >= xp_for_next_level(player["level"]):
+        player["xp"] -= xp_for_next_level(player["level"])
+        player["level"] += 1
+        leveled_up = True
+    return leveled_up
+
+
+# === PUBLIC QUESTS ===
 @app.get("/generate_quest")
 def generate(lat: float = Query(...), lon: float = Query(...)):
+    """
+    Generate public AI quests (not automatically assigned).
+    Stores them in memory for player selection.
+    """
+    global current_public_quests
+
     places = get_nearby_places(lat, lon)
     if not places:
         return {"error": "No places found nearby"}
 
-    # --- Load private zones to filter duplicates ---
+    # --- Filter out private/duplicate places ---
     private_zones = load_zones()
     private_names = {zone["name"].lower() for zone in private_zones}
     private_quest_places = {
@@ -98,52 +129,36 @@ def generate(lat: float = Query(...), lon: float = Query(...)):
     }
     excluded_places = private_names | private_quest_places
 
-    # --- Filter out private or duplicate places ---
     public_places = [p for p in places if p["name"].lower() not in excluded_places]
     if not public_places:
         return {"error": "No public places available (too close to private zones)"}
 
-    # --- Generate AI quests for public places ---
-    quests = [generate_quest(p) for p in public_places[:3]]
-    for q in quests:
+    # --- Generate and enrich quests ---
+    quests = []
+    for p in public_places[:3]:
+        q = generate_quest(p)
+        q["id"] = str(uuid4())  # ✅ unique quest ID
         weather = get_weather(q["lat"], q["lon"])
         multiplier = get_weather_multiplier(weather["weathercode"])
         reward_info = apply_reward_multiplier(q["reward"], multiplier)
         q["weather"] = weather
         q.update(reward_info)
+        quests.append(q)
 
-    active_quest = choose_best_quest(quests)
-    message = ai_recommendation(active_quest)
+    current_public_quests = quests  # ✅ store globally
 
     return {
-        "active_quest": active_quest,
-        "ai_message": message,
-        "all_quests": quests
+        "message": "New quests generated successfully.",
+        "available_quests": quests
     }
 
 
-@app.post("/complete_quest")
-def complete_quest(data: CompleteQuestRequest):
-    quest = data.quest
-    user_lat = data.current_lat
-    user_lon = data.current_lon
-    q_lat = quest.lat
-    q_lon = quest.lon
-
-    distance = haversine(user_lat, user_lon, q_lat, q_lon)
-
-    if distance < 100:
-        return {
-            "status": "completed",
-            "message": f"You completed {quest.place} and earned {quest.reward}!",
-            "distance_m": round(distance, 1)
-        }
-    else:
-        return {
-            "status": "too_far",
-            "message": f"You are {int(distance)} m away — get closer!",
-            "distance_m": round(distance, 1)
-        }
+@app.get("/get_available_quests")
+def get_available_quests():
+    """Return the last generated public quests."""
+    if not current_public_quests:
+        return {"error": "No quests generated yet."}
+    return {"available_quests": current_public_quests}
 
 
 @app.post("/ai_guide")
@@ -151,12 +166,11 @@ def guide_message(quest: dict):
     return {"message": ai_recommendation(quest)}
 
 
-# === PRIVATE (ZONE-BASED) QUESTS ===
+# === PRIVATE QUESTS (QR ZONES) ===
 @app.get("/scan_qr")
 def scan_qr(code: str):
     """
-    Scan a zone QR code → returns all quests for that zone,
-    including live weather and dynamic reward multipliers.
+    Scan a zone QR code → returns all quests with weather & multiplier.
     """
     zone = find_zone_by_code(code)
     if not zone:
@@ -182,13 +196,14 @@ def scan_qr(code: str):
 
 @app.get("/complete_quest_by_qr")
 def complete_quest_by_qr(
-        qr_key: str = Query(...),
-        user_lat: float = Query(...),
-        user_lon: float = Query(...)
+    qr_key: str = Query(...),
+    user_lat: float = Query(...),
+    user_lon: float = Query(...)
 ):
     """
     Complete a specific quest by scanning its QR code.
     Verifies both the secret qr_key and the player's proximity (within 25 m).
+    Adds XP to the player when successful.
     """
     zones = load_zones()
     for zone in zones:
@@ -201,7 +216,14 @@ def complete_quest_by_qr(
                 multiplier = get_weather_multiplier(weather["weathercode"])
                 reward_info = apply_reward_multiplier(quest["reward"], multiplier)
 
+                # Extract XP
+                try:
+                    xp_gained = int(reward_info["final_reward"].split()[0])
+                except Exception:
+                    xp_gained = 20
+
                 if distance < 25:
+                    leveled_up = add_xp(player, xp_gained)
                     return {
                         "status": "completed",
                         "message": (
@@ -211,14 +233,16 @@ def complete_quest_by_qr(
                         "quest": quest,
                         "weather": weather,
                         **reward_info,
+                        "xp_gained": xp_gained,
+                        "new_level": player["level"],
+                        "current_xp": player["xp"],
+                        "leveled_up": leveled_up,
                         "distance_m": round(distance, 1)
                     }
                 else:
                     return {
                         "status": "too_far",
-                        "message": (
-                            f"You are {int(distance)} m away — move closer to complete it!"
-                        ),
+                        "message": f"You are {int(distance)} m away — move closer to complete it!",
                         "quest": quest,
                         "weather": weather,
                         **reward_info,
@@ -231,7 +255,7 @@ def complete_quest_by_qr(
 # === QR GENERATION ===
 @app.get("/get_qr_code")
 def get_qr_code(code: str):
-    """Generate a QR image for a zone (encodes only the zone code)."""
+    """Generate a QR image for a zone."""
     zone = find_zone_by_code(code)
     if not zone:
         return {"error": "Invalid code"}
@@ -248,7 +272,7 @@ def get_qr_code(code: str):
 
 @app.get("/get_quest_qr")
 def get_quest_qr(qr_key: str):
-    """Generate a QR image for a specific quest (encodes its secret qr_key)."""
+    """Generate a QR image for a specific quest."""
     zones = load_zones()
     for zone in zones:
         for quest in zone["quests"]:
@@ -259,3 +283,77 @@ def get_quest_qr(qr_key: str):
                 buf.seek(0)
                 return StreamingResponse(buf, media_type="image/png")
     return {"error": "Invalid qr_key"}
+
+
+# === PLAYER SYSTEM ===
+@app.get("/player")
+def get_player():
+    """Get current dummy player status."""
+    return player
+
+
+@app.get("/get_active_quest")
+def get_active_quest():
+    """Return player's active quest, if any."""
+    if not player["active_quest"]:
+        return {"active_quest": None, "message": "No active quest selected."}
+    return {"active_quest": player["active_quest"]}
+
+
+@app.post("/set_active_quest")
+def set_active_quest(quest_id: str = Query(...)):
+    """Player chooses an active quest by ID."""
+    global current_public_quests
+
+    if not current_public_quests:
+        return {"error": "No available quests. Generate some first."}
+
+    quest = next((q for q in current_public_quests if q["id"] == quest_id), None)
+    if not quest:
+        return {"error": "Invalid quest ID."}
+
+    player["active_quest"] = quest
+    return {"message": f"Quest '{quest['place']}' set as active.", "active_quest": quest}
+
+
+@app.post("/complete_active_quest")
+def complete_active_quest(
+    current_lat: float = Query(...),
+    current_lon: float = Query(...)
+):
+    """Mark player's active quest as completed and add XP if close enough."""
+    if not player["active_quest"]:
+        return {"error": "No active quest assigned."}
+
+    quest = player["active_quest"]
+    q_lat = quest["lat"]
+    q_lon = quest["lon"]
+
+    distance = haversine(current_lat, current_lon, q_lat, q_lon)
+
+    # Require proximity (like public quest distance check)
+    if distance > 100:
+        return {
+            "status": "too_far",
+            "message": f"You are {int(distance)} m away — move closer to complete it!",
+            "distance_m": round(distance, 1)
+        }
+
+    # Reward logic
+    try:
+        xp = int(quest["reward"].split()[0])
+    except Exception:
+        xp = 20
+
+    leveled_up = add_xp(player, xp)
+    player["active_quest"] = None
+
+    return {
+        "status": "completed",
+        "xp_gained": xp,
+        "new_level": player["level"],
+        "current_xp": player["xp"],
+        "leveled_up": leveled_up,
+        "message": f"You completed '{quest['place']}' and earned {xp} XP!",
+        "distance_m": round(distance, 1)
+    }
