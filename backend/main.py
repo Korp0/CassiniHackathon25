@@ -13,6 +13,7 @@ from services.weather import get_weather
 from services.quest_gen import generate_quest, ai_recommendation
 from services.logic import choose_best_quest
 from services.zones import find_zone_by_code, load_zones
+from services.quest_gen import check_quest_weather_and_recommend
 from utils.calc import haversine
 
 # === Setup ===
@@ -357,3 +358,24 @@ def complete_active_quest(
         "message": f"You completed '{quest['place']}' and earned {xp} XP!",
         "distance_m": round(distance, 1)
     }
+
+
+@app.get("/check_weather_for_quest")
+def check_weather_for_quest(quest_id: str):
+    global current_public_quests
+
+    quest = next((q for q in current_public_quests if q["id"] == quest_id), None)
+    if not quest:
+        return {"error": "Quest not found."}
+
+    result = check_quest_weather_and_recommend(quest)
+
+    # 🧩 If an alternative quest is suggested, assign ID & add it to available quests
+    if not result.get("is_okay") and "suggested_quest" in result and result["suggested_quest"]:
+        suggested = result["suggested_quest"]
+        suggested["id"] = str(uuid4())  # assign new ID
+        current_public_quests.append(suggested)
+        result["suggested_quest"]["id"] = suggested["id"]
+        result["added_to_available_quests"] = True
+
+    return result
