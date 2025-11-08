@@ -1,0 +1,101 @@
+[
+  {
+    "code": "park001",
+    "name": "Košice City Park",
+    "description": "A peaceful green escape in the heart of the city.",
+    "lat": 48.724,
+    "lon": 21.259,
+    "type": "park",
+    "quest_count": 3,
+    "quests": [
+      {
+        "id": "park001_q1",
+        "qr_key": "park001_q1_7fae4b",
+        "place": "Košice City Park",
+        "goal": "Take a picture of the main fountain.",
+        "reward": "30 XP",
+        "educational_info": "The park dates back to the 19th century and is one of the oldest in Slovakia.",
+        "type": "nature",
+        "lat": 48.7245,
+        "lon": 21.2592
+      },
+      {
+        "id": "park001_q2",
+        "qr_key": "park001_q2_c1f8a2",
+        "place": "Košice City Park",
+        "goal": "Find and identify three different species of trees.",
+        "reward": "35 XP",
+        "educational_info": "Over 40 tree species grow here, making it a small botanical collection.",
+        "type": "nature",
+        "lat": 48.7250,
+        "lon": 21.2588
+      },
+      {
+        "id": "park001_q3",
+        "qr_key": "park001_q3_ae29c9",
+        "place": "Košice City Park",
+        "goal": "Walk from the south entrance to the café without using the main path.",
+        "reward": "40 XP",
+        "educational_info": "The park’s layout was inspired by English landscape gardens.",
+        "type": "park",
+        "lat": 48.7235,
+        "lon": 21.2597
+      }
+    ]
+  },
+  {
+    "code": "castle001",
+    "name": "Spiš Castle",
+    "description": "A grand medieval castle complex in eastern Slovakia.",
+    "lat": 49.000,
+    "lon": 20.766,
+    "type": "castle",
+    "quest_count": 4,
+    "quests": [
+      {
+        "id": "castle001_q1",
+        "qr_key": "castle001_q1_8f3c2d",
+        "place": "Spiš Castle",
+        "goal": "Climb to the upper courtyard and enjoy the panoramic view.",
+        "reward": "50 XP",
+        "educational_info": "Spiš Castle is one of the largest castle sites in Central Europe.",
+        "type": "castle",
+        "lat": 49.0011,
+        "lon": 20.7669
+      },
+      {
+        "id": "castle001_q2",
+        "qr_key": "castle001_q2_b2f7a1",
+        "place": "Spiš Castle",
+        "goal": "Find the old chapel and describe one unique feature of it.",
+        "reward": "45 XP",
+        "educational_info": "The chapel inside the castle is from the early 13th century.",
+        "type": "monument",
+        "lat": 49.0005,
+        "lon": 20.7655
+      },
+      {
+        "id": "castle001_q3",
+        "qr_key": "castle001_q3_94c5e3",
+        "place": "Spiš Castle",
+        "goal": "Walk the entire castle perimeter wall.",
+        "reward": "60 XP",
+        "educational_info": "The defensive wall stretches over 400 meters and was vital in medieval defense.",
+        "type": "castle",
+        "lat": 49.0013,
+        "lon": 20.7675
+      },
+      {
+        "id": "castle001_q4",
+        "qr_key": "castle001_q4_d1b8f9",
+        "place": "Spiš Castle",
+        "goal": "Find the information board about archaeological excavations.",
+        "reward": "40 XP",
+        "educational_info": "Excavations revealed ancient settlements dating back to the 5th century BC.",
+        "type": "landmark",
+        "lat": 49.0008,
+        "lon": 20.7660
+      }
+    ]
+  }
+]
