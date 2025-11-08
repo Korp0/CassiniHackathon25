@@ -42,6 +42,45 @@ class CompleteQuestRequest(BaseModel):
     current_lon: float
 
 
+# === HELPERS ===
+def get_weather_multiplier(code: int) -> float:
+    """
+    Return reward multiplier based on the Open-Meteo weather code.
+    1.0 = normal reward, higher = bad weather bonus
+    """
+    if code in [0, 1, 2]:  # clear / partly cloudy
+        return 1.0
+    if code in [3]:  # overcast
+        return 1.1
+    if code in [45, 48]:  # fog
+        return 1.2
+    if code in [51, 53, 55]:  # drizzle
+        return 1.2
+    if code in [61, 63, 65, 80, 81, 82]:  # rain
+        return 1.3
+    if code in [66, 67]:  # freezing rain
+        return 1.4
+    if code in [71, 73, 75, 85, 86]:  # snow
+        return 1.4
+    if code in [95, 96, 99]:  # thunderstorms
+        return 1.5
+    return 1.0
+
+
+def apply_reward_multiplier(reward_str: str, multiplier: float) -> dict:
+    """Apply multiplier to reward like '40 XP' and return structured info."""
+    try:
+        base_xp = int(reward_str.split()[0])
+    except Exception:
+        base_xp = 20
+    final_xp = int(base_xp * multiplier)
+    return {
+        "base_reward": f"{base_xp} XP",
+        "multiplier": round(multiplier, 2),
+        "final_reward": f"{final_xp} XP"
+    }
+
+
 # === PUBLIC (AI-GENERATED) QUESTS ===
 @app.get("/generate_quest")
 def generate(lat: float = Query(...), lon: float = Query(...)):
@@ -49,13 +88,38 @@ def generate(lat: float = Query(...), lon: float = Query(...)):
     if not places:
         return {"error": "No places found nearby"}
 
-    quests = [generate_quest(p) for p in places[:3]]
+    # --- Load private zones to filter duplicates ---
+    private_zones = load_zones()
+    private_names = {zone["name"].lower() for zone in private_zones}
+    private_quest_places = {
+        quest["place"].lower()
+        for zone in private_zones
+        for quest in zone["quests"]
+    }
+    excluded_places = private_names | private_quest_places
+
+    # --- Filter out private or duplicate places ---
+    public_places = [p for p in places if p["name"].lower() not in excluded_places]
+    if not public_places:
+        return {"error": "No public places available (too close to private zones)"}
+
+    # --- Generate AI quests for public places ---
+    quests = [generate_quest(p) for p in public_places[:3]]
     for q in quests:
-        q["weather"] = get_weather(q["lat"], q["lon"])
+        weather = get_weather(q["lat"], q["lon"])
+        multiplier = get_weather_multiplier(weather["weathercode"])
+        reward_info = apply_reward_multiplier(q["reward"], multiplier)
+        q["weather"] = weather
+        q.update(reward_info)
 
     active_quest = choose_best_quest(quests)
     message = ai_recommendation(active_quest)
-    return {"active_quest": active_quest, "ai_message": message, "all_quests": quests}
+
+    return {
+        "active_quest": active_quest,
+        "ai_message": message,
+        "all_quests": quests
+    }
 
 
 @app.post("/complete_quest")
@@ -77,7 +141,7 @@ def complete_quest(data: CompleteQuestRequest):
     else:
         return {
             "status": "too_far",
-            "message": f"You are {int(distance)}m away — get closer!",
+            "message": f"You are {int(distance)} m away — get closer!",
             "distance_m": round(distance, 1)
         }
 
@@ -90,10 +154,21 @@ def guide_message(quest: dict):
 # === PRIVATE (ZONE-BASED) QUESTS ===
 @app.get("/scan_qr")
 def scan_qr(code: str):
-    """Scan a zone QR code → returns all quests for that zone."""
+    """
+    Scan a zone QR code → returns all quests for that zone,
+    including live weather and dynamic reward multipliers.
+    """
     zone = find_zone_by_code(code)
     if not zone:
         return {"error": "Invalid QR code"}
+
+    quests_with_weather = []
+    for quest in zone["quests"]:
+        weather = get_weather(quest["lat"], quest["lon"])
+        multiplier = get_weather_multiplier(weather["weathercode"])
+        reward_info = apply_reward_multiplier(quest["reward"], multiplier)
+        quest_with_weather = {**quest, "weather": weather, **reward_info}
+        quests_with_weather.append(quest_with_weather)
 
     return {
         "zone": {
@@ -101,7 +176,7 @@ def scan_qr(code: str):
             "description": zone["description"],
             "type": zone["type"]
         },
-        "quests": zone["quests"]
+        "quests": quests_with_weather
     }
 
 
@@ -122,19 +197,31 @@ def complete_quest_by_qr(
                 q_lat = quest["lat"]
                 q_lon = quest["lon"]
                 distance = haversine(user_lat, user_lon, q_lat, q_lon)
+                weather = get_weather(q_lat, q_lon)
+                multiplier = get_weather_multiplier(weather["weathercode"])
+                reward_info = apply_reward_multiplier(quest["reward"], multiplier)
 
-                if distance < 25:  # stricter distance check
+                if distance < 25:
                     return {
                         "status": "completed",
-                        "message": f"You completed '{quest['goal']}' at {quest['place']} and earned {quest['reward']}!",
+                        "message": (
+                            f"You completed '{quest['goal']}' at {quest['place']} "
+                            f"and earned {reward_info['final_reward']}!"
+                        ),
                         "quest": quest,
+                        "weather": weather,
+                        **reward_info,
                         "distance_m": round(distance, 1)
                     }
                 else:
                     return {
                         "status": "too_far",
-                        "message": f"You are {int(distance)}m away from the target — move closer to complete it!",
+                        "message": (
+                            f"You are {int(distance)} m away — move closer to complete it!"
+                        ),
                         "quest": quest,
+                        "weather": weather,
+                        **reward_info,
                         "distance_m": round(distance, 1)
                     }
 
