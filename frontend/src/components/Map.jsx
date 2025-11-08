@@ -31,12 +31,35 @@ const playerIcon = L.divIcon({
 });
 
 // Ikona pre quest - use custom icon from public folder (caves.svg)
-const questIcon = L.icon({
-  iconUrl: '/caves.svg',
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40],
-});
+// Icon cache and factory: choose an icon based on landmark type (fallback to /landmark.svg)
+const iconCache = {};
+function getIconForType(type, isIndoor = false) {
+  const raw = (type || '').toString().toLowerCase();
+  const key = `${raw}::${isIndoor ? 'indoor' : 'outdoor'}`;
+  if (iconCache[key]) return iconCache[key];
+
+  // Map common type names to actual SVG filenames in public/
+  let iconPath = '';
+  if (raw.includes('museum')) iconPath = '/museums.svg';
+  else if (raw.includes('cave') || raw.includes('caves')) iconPath = '/caves.svg';
+  else if (raw.includes('castle') || raw.includes('castles')) iconPath = '/castles.svg';
+  else if (raw.includes('landmark') || raw.includes('landmarks')) iconPath = '/landmarks.svg';
+
+  // If no explicit mapping by type, choose fallback based on indoor/outdoor
+  if (!iconPath) {
+    iconPath = isIndoor ? '/museums.svg' : '/landmarks.svg';
+  }
+
+  const ic = L.icon({
+    iconUrl: iconPath,
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40],
+  });
+
+  iconCache[key] = ic;
+  return ic;
+}
 
 // Active quest icon (green) using a simple green circle divIcon
 const activeQuestIcon = L.divIcon({
@@ -252,7 +275,7 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
         )}
         
         {/* Quest markers */}
-        {quests && quests.length > 0 && quests.map((quest, index) => {
+          {quests && quests.length > 0 && quests.map((quest, index) => {
           if (!quest.lat || !quest.lon) return null;
 
           const isActive = activeQuest && (
@@ -261,11 +284,17 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
             Number(activeQuest.lon) === Number(quest.lon)
           );
 
+          // determine indoor/outdoor from several possible flags on quest
+          const isIndoor = Boolean(
+            quest.is_indoor ?? quest.indoor ?? (quest.mode && String(quest.mode).toLowerCase() === 'indoor') ??
+            (quest.type && String(quest.type).toLowerCase().includes('indoor'))
+          );
+
           return (
             <Marker
               key={index}
               position={[quest.lat, quest.lon]}
-              icon={isActive ? activeQuestIcon : questIcon}
+              icon={isActive ? activeQuestIcon : getIconForType(quest.type || quest.category || quest.icon || '', isIndoor)}
             >
               <Popup>
                 <div className="min-w-[200px] p-2">

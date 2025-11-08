@@ -134,3 +134,30 @@ export const checkWeatherForQuest = async (questId) => {
     throw error;
   }
 };
+
+export const getShop = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/shop`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching shop:', error);
+    throw error;
+  }
+};
+
+export const buyShopItem = async (itemName) => {
+  try {
+    // Backend expects item_name as query param on POST /buy_item
+    const response = await axios.post(`${API_BASE_URL}/buy_item`, null, {
+      params: { item_name: itemName }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error buying shop item:', error);
+    // If server returned non-2xx, axios throws — try to return server message if present
+    if (error.response && error.response.data) {
+      return error.response.data;
+    }
+    throw error;
+  }
+};

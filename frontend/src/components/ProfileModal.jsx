@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { getPlayer } from '../utils/api';
+import ShopModal from './ShopModal';
 
 export default function ProfileModal({ onClose }) {
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [showShop, setShowShop] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -25,6 +27,20 @@ export default function ProfileModal({ onClose }) {
     load();
     return () => { mounted = false; };
   }, []);
+
+  // expose a reload function so shop can refresh player after purchase
+  const reloadPlayer = async () => {
+    try {
+      setLoading(true);
+      const data = await getPlayer();
+      setPlayer(data || null);
+    } catch (err) {
+      console.error('Error reloading player:', err);
+      setError('Nepodarilo sa obnoviť údaje hráča.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -54,6 +70,11 @@ export default function ProfileModal({ onClose }) {
                 <div className="font-mono font-semibold">{player.xp} XP</div>
               </div>
 
+              <div className="bg-yellow-50 rounded-md p-3">
+                <div className="text-sm text-gray-600">GeoBucks</div>
+                <div className="font-mono font-semibold">{player.geobucks ?? 0}</div>
+              </div>
+
               <div className="text-sm text-gray-700">
                 ID: <span className="font-mono">{player.id}</span>
               </div>
@@ -64,6 +85,12 @@ export default function ProfileModal({ onClose }) {
                   className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm"
                 >
                   Viac informácií
+                </button>
+                <button
+                  onClick={() => setShowShop(true)}
+                  className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm"
+                >
+                  Obchod
                 </button>
                 <button
                   onClick={onClose}
@@ -106,8 +133,8 @@ export default function ProfileModal({ onClose }) {
                 <div>{player?.xp} XP</div>
               </div>
               <div className="flex justify-between">
-                <div className="text-gray-500">Coins</div>
-                <div className="font-semibold">{player?.coins ?? 0}</div>
+                <div className="text-gray-500">Geobucks</div>
+                <div className="font-semibold">{player?.geobucks ?? 0} 🪙</div>
               </div>
 
               <div>
@@ -124,6 +151,10 @@ export default function ProfileModal({ onClose }) {
             </div>
           </div>
         </div>
+      )}
+
+      {showShop && (
+        <ShopModal onClose={() => setShowShop(false)} onPurchaseSuccess={() => reloadPlayer()} playerGeobucks={player?.geobucks ?? 0} />
       )}
     </>
   );
