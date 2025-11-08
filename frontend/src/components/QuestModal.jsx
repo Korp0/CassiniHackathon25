@@ -1,5 +1,34 @@
+import { useEffect, useState } from 'react';
+import { checkWeatherForQuest } from '../utils/api';
+
 const QuestModal = ({ quest, onClose, onStart }) => {
+  const [checkResult, setCheckResult] = useState(null);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const runCheck = async () => {
+      if (!quest || !quest.id) return;
+      setChecking(true);
+      try {
+        const res = await checkWeatherForQuest(quest.id);
+        if (!mounted) return;
+        setCheckResult(res || null);
+      } catch (err) {
+        console.warn('Weather check failed:', err);
+        if (mounted) setCheckResult(null);
+      } finally {
+        if (mounted) setChecking(false);
+      }
+    };
+    runCheck();
+    return () => { mounted = false; };
+  }, [quest]);
+
   if (!quest) return null;
+
+  const suggested = checkResult?.suggested_quest || null;
+  const isOkay = checkResult?.is_okay;
 
   return (
     // Overlay - click outside closes
@@ -70,12 +99,39 @@ const QuestModal = ({ quest, onClose, onStart }) => {
         </div>
 
         <div className="px-4 pb-6 space-y-3">
+          {/* Weather check result (if any) */}
+          {checking && (
+            <div className="p-3 text-sm text-gray-600">Kontrolujem počasie pre túto úlohu...</div>
+          )}
+
+          {checkResult && checkResult.is_okay === false && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800">
+              <div className="font-semibold">Nie je vhodné počasie: {checkResult.reason}</div>
+              {checkResult.ai_message && (
+                <div className="mt-1 text-sm text-red-700">{checkResult.ai_message}</div>
+              )}
+            </div>
+          )}
+
           <button
             className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-3 rounded-xl font-semibold shadow-lg transition"
-            onClick={() => { if (typeof onStart === 'function') onStart(quest); onClose(); }}
+            onClick={async () => { if (typeof onStart === 'function') await onStart(quest); onClose(); }}
           >
             🚀 Začať quest
           </button>
+
+          {/* If weather check suggested an alternative, show suggested quest button */}
+          {checkResult && checkResult.is_okay === false && suggested && (
+            <div className="space-y-2">
+              <div className="text-sm text-red-700">Navrhovaný quest (lepšie počasie):</div>
+              <button
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold shadow-lg transition flex items-center justify-center gap-3"
+                onClick={async () => { if (typeof onStart === 'function') await onStart(suggested); onClose(); }}
+              >
+                ⛑️ {suggested.place}
+              </button>
+            </div>
+          )}
 
           <button
             className="w-full bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-semibold shadow-sm"

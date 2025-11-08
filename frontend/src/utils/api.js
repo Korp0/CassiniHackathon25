@@ -122,3 +122,15 @@ export const completeQuestByQr = async (qrKey, userLat, userLon) => {
     throw error;
   }
 };
+
+export const checkWeatherForQuest = async (questId) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/check_weather_for_quest`, {
+      params: { quest_id: questId }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error checking weather for quest:', error);
+    throw error;
+  }
+};

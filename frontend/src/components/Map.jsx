@@ -30,9 +30,9 @@ const playerIcon = L.divIcon({
   iconAnchor: [10, 10],
 });
 
-// Ikona pre quest
+// Ikona pre quest - use custom icon from public folder (caves.svg)
 const questIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+  iconUrl: '/caves.svg',
   iconSize: [40, 40],
   iconAnchor: [20, 40],
   popupAnchor: [0, -40],

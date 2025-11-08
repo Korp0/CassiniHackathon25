@@ -28,7 +28,7 @@ export default function ProfileModal({ onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100000] p-6">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100001] p-6">
         <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl">
         <div className="flex items-start justify-between">
           <h3 className="text-lg font-bold">Profil hráča</h3>
