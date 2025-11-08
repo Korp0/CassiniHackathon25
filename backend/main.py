@@ -65,6 +65,28 @@ def get_weather_multiplier(code: int) -> float:
     return 1.0
 
 
+# === ACHIEVEMENTS SYSTEM ===
+achievements = [
+    {
+        "id": "walk_10km",
+        "name": "Explorer on Foot",
+        "description": "Walk a total of 10 km while exploring quests.",
+        "reward_geobucks": 20,
+    },
+    {
+        "id": "reach_lvl_5",
+        "name": "Adventurer",
+        "description": "Reach player level 5.",
+        "reward_geobucks": 50,
+    },
+    {
+        "id": "finish_10_quests",
+        "name": "Quest Veteran",
+        "description": "Complete 10 quests.",
+        "reward_geobucks": 100,
+    }
+]
+
 def apply_reward_multiplier(reward_str: str, multiplier: float) -> dict:
     """Apply multiplier to reward like '40 XP', and calculate GeoBucks reward."""
     try:
@@ -113,9 +135,15 @@ player = {
     "name": "Traveler",
     "level": 1,
     "xp": 0,
-    "geobucks": 0,  # 💸 in-game currency
-    "active_quest": None
+    "geobucks": 0,
+    "active_quest": None,
+    "progress": {                     # ✅ moved inside player
+        "quests_completed": 0,
+        "distance_walked": 0.0        # km
+    },
+    "achievements": []                # ✅ store unlocked achievement IDs
 }
+
 
 
 def xp_for_next_level(level: int) -> int:
@@ -481,4 +509,36 @@ def buy_geobucks(amount: int = Query(...)):
         "message": f"Successfully purchased {amount} GeoBucks!",
         "total_geobucks": player["geobucks"],
         "note": "This is a simulated purchase. No real money involved."
+    }
+
+
+@app.get("/achievements")
+def get_achievements():
+    """Return all achievements with player unlock status."""
+    unlocked = set(player["achievements"])
+    data = [
+        {**a, "unlocked": a["id"] in unlocked}
+        for a in achievements
+    ]
+    return {"achievements": data, "total_geobucks": player["geobucks"]}
+
+
+@app.post("/achievements/unlock")
+def unlock_achievement(achievement_id: str = Query(...)):
+    """Manually unlock an achievement and reward GeoBucks."""
+    ach = next((a for a in achievements if a["id"] == achievement_id), None)
+    if not ach:
+        return {"error": "Achievement not found."}
+
+    if achievement_id in player["achievements"]:
+        return {"message": f"Achievement '{ach['name']}' already unlocked."}
+
+    # Mark unlocked and reward player
+    player["achievements"].append(achievement_id)
+    player["geobucks"] += ach["reward_geobucks"]
+
+    return {
+        "message": f"Achievement unlocked: {ach['name']}! You earned {ach['reward_geobucks']} GeoBucks.",
+        "total_geobucks": player["geobucks"],
+        "achievement": ach
     }
