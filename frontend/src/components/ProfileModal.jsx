@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getPlayer } from '../utils/api';
-import ShopModal from './ShopModal';
 
 export default function ProfileModal({ onClose }) {
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [showShop, setShowShop] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -67,12 +65,18 @@ export default function ProfileModal({ onClose }) {
 
               <div className="bg-gray-50 rounded-md p-3">
                 <div className="text-sm text-gray-600">XP</div>
-                <div className="font-mono font-semibold">{player.xp} XP</div>
+                <div className="font-mono font-semibold flex items-center gap-2">
+                  <img src="/xp.svg" alt="XP" className="w-5 h-5" />
+                  <span>{player.xp} XP</span>
+                </div>
               </div>
 
               <div className="bg-yellow-50 rounded-md p-3">
                 <div className="text-sm text-gray-600">GeoBucks</div>
-                <div className="font-mono font-semibold">{player.geobucks ?? 0}</div>
+                <div className="font-mono font-semibold flex items-center gap-2">
+                  <img src="/geobucks.svg" alt="GeoBucks" className="w-5 h-5" />
+                  <span>{player.geobucks ?? 0}</span>
+                </div>
               </div>
 
               <div className="text-sm text-gray-700">
@@ -85,12 +89,6 @@ export default function ProfileModal({ onClose }) {
                   className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm"
                 >
                   Viac informácií
-                </button>
-                <button
-                  onClick={() => setShowShop(true)}
-                  className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm"
-                >
-                  Obchod
                 </button>
                 <button
                   onClick={onClose}
@@ -130,11 +128,11 @@ export default function ProfileModal({ onClose }) {
               </div>
               <div className="flex justify-between">
                 <div className="text-gray-500">XP</div>
-                <div>{player?.xp} XP</div>
+                <div className="flex items-center gap-2"><img src="/xp.svg" alt="XP" className="w-4 h-4" />{player?.xp} XP</div>
               </div>
               <div className="flex justify-between">
                 <div className="text-gray-500">Geobucks</div>
-                <div className="font-semibold">{player?.geobucks ?? 0} 🪙</div>
+                <div className="font-semibold flex items-center gap-2"><img src="/geobucks.svg" alt="GeoBucks" className="w-4 h-4" />{player?.geobucks ?? 0}</div>
               </div>
 
               <div>
@@ -153,9 +151,7 @@ export default function ProfileModal({ onClose }) {
         </div>
       )}
 
-      {showShop && (
-        <ShopModal onClose={() => setShowShop(false)} onPurchaseSuccess={() => reloadPlayer()} playerGeobucks={player?.geobucks ?? 0} />
-      )}
+      {/* Shop is now a global floating button in the app; opening handled by App.jsx */}
     </>
   );
 }

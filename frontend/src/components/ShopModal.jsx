@@ -83,7 +83,11 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
                     <div className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-2xl shadow-sm">{emojiFor(it.name)}</div>
                     <div className="flex-1">
                       <div className="font-medium">{it.name}</div>
-                      <div className="text-xs text-gray-500">Cena: {it.cost} 🪙</div>
+                      <div className="text-xs text-gray-500 flex items-center">
+                        <img src="/geobucks.svg" alt="GeoBucks" className="w-4 h-4 mr-1" />
+                        <span>Cena:</span>
+                        <span className="ml-1 font-semibold">{it.cost}</span>
+                      </div>
                     </div>
                   </div>
 

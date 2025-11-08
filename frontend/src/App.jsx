@@ -6,6 +6,7 @@ import LoadingScreen from './components/LoadingScreen';
 import { useGeolocation } from './hooks/useGeolocation';
 import { fetchQuests, fetchZoneByCode, startQuest, setActiveQuest as apiSetActiveQuest, completeActiveQuest as apiCompleteActiveQuest, completeQuestByQr as apiCompleteQuestByQr } from './utils/api';
 import ProfileModal from './components/ProfileModal';
+import ShopModal from './components/ShopModal';
 import StartupModal from './components/StartupModal';
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [notification, setNotification] = useState(null); // { text, type }
   const [showProfile, setShowProfile] = useState(false);
+  const [showShop, setShowShop] = useState(false);
+  const [profileKey, setProfileKey] = useState(0);
   
   // Mode: 'default' | 'public' | 'private'
   const [mode, setMode] = useState('default');
@@ -396,8 +399,33 @@ function App() {
         </button>
       </div>
 
+      {/* Shop floating button */}
+      <div className="fixed top-5 right-20 z-[100001]">
+        <button
+          onClick={() => setShowShop(true)}
+          className="w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center text-lg border border-gray-200"
+          aria-label="Open shop"
+          title="Obchod"
+        >
+          🛒
+        </button>
+      </div>
+
       {showProfile && (
-        <ProfileModal onClose={() => setShowProfile(false)} />
+        <ProfileModal key={profileKey} onClose={() => setShowProfile(false)} />
+      )}
+
+      {showShop && (
+        <ShopModal
+          onClose={() => setShowShop(false)}
+          onPurchaseSuccess={() => {
+            // bump profileKey so ProfileModal remounts and reloads player if it's open
+            setProfileKey(k => k + 1);
+            setNotification({ text: 'Nákup uskutočnený', type: 'success' });
+            setTimeout(() => setNotification(null), 3000);
+          }}
+          playerGeobucks={null}
+        />
       )}
 
       {/* Control row - mobile-first horizontal layout just above bottom panel */}
