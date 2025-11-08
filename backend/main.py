@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from services.places import get_nearby_places
 from services.weather import get_weather
 from services.quest_gen import generate_quest, ai_recommendation
 from services.logic import choose_best_quest
+from utils.calc import haversine
 
 app = FastAPI()
 
@@ -22,6 +23,31 @@ def generate(lat: float = Query(...), lon: float = Query(...)):
     message = ai_recommendation(active_quest)
 
     return {"active_quest": active_quest, "ai_message": message, "all_quests": quests}
+
+
+@app.post("/complete_quest")
+def complete_quest(req: Request):
+    data = req.json()
+    quest = data.get("quest")
+    user_lat = data.get("current_lat")
+    user_lon = data.get("current_lon")
+
+    q_lat = quest["lat"]
+    q_lon = quest["lon"]
+
+    distance = haversine(user_lat, user_lon, q_lat, q_lon)
+
+    if distance < 100:
+        return {
+            "status": "completed",
+            "message": f"You completed {quest['place']} and earned {quest['reward']}!"
+        }
+    else:
+        return {
+            "status": "too_far",
+            "message": f"You are {int(distance)}m away — get closer!"
+        }
+
 
 @app.post("/ai_guide")
 def guide_message(quest: dict):
