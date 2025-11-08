@@ -4,7 +4,7 @@ import QuestModal from './components/QuestModal';
 import WeatherDisplay from './components/WeatherDisplay';
 import LoadingScreen from './components/LoadingScreen';
 import { useGeolocation } from './hooks/useGeolocation';
-import { fetchQuests, fetchZoneByCode, startQuest, setActiveQuest as apiSetActiveQuest, completeActiveQuest as apiCompleteActiveQuest } from './utils/api';
+import { fetchQuests, fetchZoneByCode, startQuest, setActiveQuest as apiSetActiveQuest, completeActiveQuest as apiCompleteActiveQuest, completeQuestByQr as apiCompleteQuestByQr } from './utils/api';
 import ProfileModal from './components/ProfileModal';
 import StartupModal from './components/StartupModal';
 
@@ -103,13 +103,21 @@ function App() {
         } else {
           const zoneQuests = data.quests || [];
           setQuests(zoneQuests);
-          setActiveQuest(zoneQuests[0] || null);
+            setActiveQuest(zoneQuests[0] || null);
           setAiMessage(`Zobrazené miesto: ${data.zone?.name || ''}`);
           if (zoneQuests[0]) {
             const lat = parseFloat(zoneQuests[0].lat);
             const lon = parseFloat(zoneQuests[0].lon);
             setMapCenter([lat, lon]);
           }
+            // Try to inform backend about active quest if it has an id
+            try {
+              if (zoneQuests[0] && zoneQuests[0].id) {
+                await apiSetActiveQuest(zoneQuests[0].id);
+              }
+            } catch (err) {
+              console.warn('Could not set active quest for private zone on backend:', err);
+            }
           setMode('private');
           setShowModeSelector(false);
         }
@@ -141,6 +149,26 @@ function App() {
 
   // Start (activate) a quest: call backend (mock) to check suitability (weather)
   const handleStartQuest = async (quest) => {
+    // Prevent activating the same quest twice
+    const isSameQuest = (a, b) => {
+      if (!a || !b) return false;
+      // Prefer comparing by id when available
+      if (a.id && b.id) return String(a.id) === String(b.id);
+      // Fallback: compare place + coordinates
+      return (
+        String(a.place) === String(b.place) &&
+        Number(a.lat) === Number(b.lat) &&
+        Number(a.lon) === Number(b.lon)
+      );
+    };
+
+    if (isSameQuest(activeQuest, quest)) {
+      // Already active — notify and do nothing
+      setNotification({ text: `Quest ${quest.place} je už aktívny.`, type: 'info' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
     setActivationPending(true);
     setError(null);
     setAiMessage('Overujem vhodnosť miesta...');
@@ -210,6 +238,58 @@ function App() {
     setActivationPending(true);
     setError(null);
     try {
+      // Private mode: try QR-based completion first
+      if (mode === 'private' && activeQuest?.qr_key) {
+        try {
+          const resp = await apiCompleteQuestByQr(activeQuest.qr_key, position.lat, position.lng);
+          if (resp && resp.status === 'completed') {
+            const name = activeQuest.place;
+            setActiveQuest(null);
+            setQuests(prev => prev.map(q => ({ ...q, __active: false })));
+            setNotification({ text: resp.message || `Dokončil si quest: ${name}`, type: 'success' });
+            setTimeout(() => setNotification(null), 4500);
+            return;
+          } else if (resp && resp.status === 'too_far') {
+            setError(resp.message || 'Príliš ďaleko na dokončenie questu.');
+            return;
+          } else {
+            // resp.status === 'error' or unknown - fallthrough to fallback
+            console.warn('QR completion returned non-complete status, falling back:', resp);
+          }
+        } catch (err) {
+          console.warn('QR completion failed, will try fallback:', err);
+        }
+
+        // Fallback: if quest has an id, try to set it active on server and complete via active endpoint
+        if (activeQuest.id) {
+          try {
+            await apiSetActiveQuest(activeQuest.id);
+            const resp2 = await apiCompleteActiveQuest(position.lat, position.lng);
+            if (resp2 && resp2.status === 'completed') {
+              const name = activeQuest.place;
+              setActiveQuest(null);
+              setQuests(prev => prev.map(q => ({ ...q, __active: false })));
+              setNotification({ text: resp2.message || `Dokončil si quest: ${name}`, type: 'success' });
+              setTimeout(() => setNotification(null), 4500);
+              return;
+            }
+            if (resp2 && resp2.status === 'too_far') {
+              setError(resp2.message || 'Príliš ďaleko na dokončenie questu.');
+              return;
+            }
+          } catch (err) {
+            console.error('Fallback completion failed:', err);
+            setError('Nepodarilo sa dokončiť quest ani cez QR ani cez aktiváciu na serveri.');
+            return;
+          }
+        }
+
+        // If we get here, no successful completion in private mode
+        setError('Nepodarilo sa dokončiť súkromný quest. Skontroluj QR kód alebo skúste aktivovať quest na serveri.');
+        return;
+      }
+
+      // Default/public flow: complete active quest via server endpoint
       const resp = await apiCompleteActiveQuest(position.lat, position.lng);
       if (resp && resp.status === 'completed') {
         const name = activeQuest.place;

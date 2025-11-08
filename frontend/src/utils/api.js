@@ -110,3 +110,15 @@ export const completeActiveQuest = async (currentLat, currentLon) => {
     throw error;
   }
 };
+
+export const completeQuestByQr = async (qrKey, userLat, userLon) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/complete_quest_by_qr`, {
+      params: { qr_key: qrKey, user_lat: userLat, user_lon: userLon }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error completing quest by QR:', error);
+    throw error;
+  }
+};
