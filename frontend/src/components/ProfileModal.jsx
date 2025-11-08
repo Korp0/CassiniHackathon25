@@ -56,7 +56,9 @@ export default function ProfileModal({ onClose }) {
           {player && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center text-xl">{player.name?.charAt(0) || 'P'}</div>
+                <div className="w-12 h-12 rounded-full overflow-hidden bg-blue-200 flex items-center justify-center">
+                  <img src="/avatar.svg" alt="Avatar" className="w-full h-full object-cover" />
+                </div>
                 <div>
                   <div className="font-semibold">{player.name}</div>
                   <div className="text-sm text-gray-500">Level {player.level}</div>
