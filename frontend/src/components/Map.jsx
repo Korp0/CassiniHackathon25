@@ -303,7 +303,7 @@ const Map = ({ position, quests, onQuestClick, centerOnPlayer = false, mapCenter
                   <strong className="block text-base mb-1"><FaBullseye className="inline mr-2"/> {quest.place}</strong>
                   <p className="text-sm text-gray-600 my-1">{quest.goal}</p>
                   <button 
-                    className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg font-medium transition-colors"
+                    className="mt-2 w-full bg-[#8D9F53] hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg font-medium transition-colors"
                     onClick={() => onQuestClick(quest)}
                   >
                     Zobraziť detail

@@ -161,3 +161,27 @@ export const buyShopItem = async (itemName) => {
     throw error;
   }
 };
+
+export const buyGeobucks = async (amount) => {
+  try {
+    // Dummy backend endpoint to purchase GeoBucks. Expects amount as query param.
+    const response = await axios.post(`${API_BASE_URL}/buy_geobucks`, null, {
+      params: { amount }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error buying geobucks:', error);
+    if (error.response && error.response.data) return error.response.data;
+    throw error;
+  }
+};
+
+export const getAchievements = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/achievements`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching achievements:', error);
+    throw error;
+  }
+};

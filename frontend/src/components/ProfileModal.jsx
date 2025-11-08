@@ -63,7 +63,7 @@ export default function ProfileModal({ onClose }) {
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-md p-3">
+              <div className="bg-red-50 rounded-md p-3">
                 <div className="text-sm text-gray-600">XP</div>
                 <div className="font-mono font-semibold flex items-center gap-2">
                   <img src="/xp.svg" alt="XP" className="w-5 h-5" />
@@ -86,9 +86,9 @@ export default function ProfileModal({ onClose }) {
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setShowDetails(true)}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm"
+                  className="flex-1 bg-[#8D9F53] text-white py-2 rounded-lg text-sm"
                 >
-                  Viac informácií
+                  Detail
                 </button>
                 <button
                   onClick={onClose}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getShop, buyShopItem } from '../utils/api';
+import { getShop, buyShopItem, getPlayer } from '../utils/api';
 import { FaRobot, FaAward, FaBox } from 'react-icons/fa';
 import { FiCloud, FiMap, FiX } from 'react-icons/fi';
 
@@ -19,6 +19,7 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState({});
   const [message, setMessage] = useState(null);
+  const [player, setPlayer] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -39,6 +40,22 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
     return () => { mounted = false; };
   }, []);
 
+  // Load player info to determine affordability
+  useEffect(() => {
+    let mounted = true;
+    const loadPlayer = async () => {
+      try {
+        const p = await getPlayer();
+        if (!mounted) return;
+        setPlayer(p || null);
+      } catch (err) {
+        console.error('Error loading player in shop:', err);
+      }
+    };
+    loadPlayer();
+    return () => { mounted = false; };
+  }, []);
+
   const handleBuy = async (item) => {
     setMessage(null);
     setBusy((s) => ({ ...s, [item.name]: true }));
@@ -50,6 +67,13 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
         const text = res && res.message ? res.message : `Kúpili ste ${item.name}.`;
         setMessage({ type: 'success', text });
         if (onPurchaseSuccess) onPurchaseSuccess(res);
+        // refresh player balance after successful purchase
+        try {
+          const p = await getPlayer();
+          setPlayer(p || null);
+        } catch (e) {
+          console.warn('Could not refresh player after purchase', e);
+        }
       }
     } catch (err) {
       console.error('Buy failed', err);
@@ -79,27 +103,25 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
 
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 items-stretch">
             {items.map((it, idx) => {
-              const unaffordable = (it.cost || 0) > (playerGeobucks ?? 0);
+              const available = player?.geobucks ?? playerGeobucks ?? 0;
+              const unaffordable = (it.cost || 0) > available;
               return (
-                <div key={idx} className="p-3 bg-gray-50 rounded flex flex-col justify-between h-full">
-                  <div className="flex items-center gap-3 w-full">
-                    <div className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-2xl shadow-sm">{iconFor(it.name)}</div>
-                    <div className="flex-1">
-                      <div className="font-medium">{it.name}</div>
-                      <div className="text-xs text-gray-500 flex items-center">
-                        <img src="/geobucks.svg" alt="GeoBucks" className="w-4 h-4 mr-1" />
-                        <span>Cena:</span>
-                        <span className="ml-1 font-semibold">{it.cost}</span>
-                      </div>
+                <div key={idx} className="p-3 bg-gray-50 rounded flex flex-col justify-between h-full border-2 border-black">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="w-16 h-16 flex items-center justify-center bg-white rounded-full text-2xl shadow-sm">{iconFor(it.name)}</div>
+                    <div className="font-medium">{it.name}</div>
+                    <div className="text-sm text-gray-500 flex items-center gap-2 justify-center">
+                      <img src="/geobucks.svg" alt="GeoBucks" className="w-4 h-4" />
+                      <span className="font-semibold">{it.cost}</span>
                     </div>
                   </div>
 
-                  <div className="mt-3 w-full flex items-center justify-between">
-                    <div className="text-xs text-gray-500">{unaffordable ? 'Nedostatok prostriedkov' : ''}</div>
+                  <div className="mt-3">
+                    <div className="text-xs text-gray-500 mb-2 text-center">{unaffordable ? 'Nedostatok prostriedkov' : ''}</div>
                     <button
                       onClick={() => handleBuy(it)}
                       disabled={!!busy[it.name] || unaffordable}
-                      className={`py-1 px-3 rounded text-sm ${busy[it.name] || unaffordable ? 'bg-gray-200 text-gray-600' : 'bg-blue-600 text-white'}`}>
+                      className={`w-full py-2 rounded text-sm ${busy[it.name] || unaffordable ? 'bg-gray-200 text-gray-600' : 'bg-[#8D9F53] text-white'}`}>
                       {busy[it.name] ? 'Kupujem…' : 'Kúpiť'}
                     </button>
                   </div>

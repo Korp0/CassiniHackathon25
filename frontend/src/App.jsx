@@ -8,8 +8,11 @@ import { fetchQuests, fetchZoneByCode, startQuest, setActiveQuest as apiSetActiv
 import ProfileModal from './components/ProfileModal';
 import ShopModal from './components/ShopModal';
 import StartupModal from './components/StartupModal';
-import { FiUser, FiShoppingCart, FiMap, FiCamera, FiCompass, FiMapPin, FiCheckCircle, FiAlertTriangle, FiInfo, FiClock, FiRefreshCw, FiLogOut, FiStar, FiX } from 'react-icons/fi';
+import BuyGeobucksModal from './components/BuyGeobucksModal';
+import { FiUser, FiShoppingCart, FiMap, FiCamera, FiCompass, FiMapPin, FiCheckCircle, FiAlertTriangle, FiInfo, FiClock, FiRefreshCw, FiLogOut, FiStar, FiX, FiDollarSign } from 'react-icons/fi';
 import { FaBullseye } from 'react-icons/fa';
+import { FiAward } from 'react-icons/fi';
+import AchievementsModal from './components/AchievementsModal';
 
 function App() {
   const { position, error: geoError, loading: geoLoading } = useGeolocation();
@@ -26,6 +29,8 @@ function App() {
   const [notification, setNotification] = useState(null); // { text, type }
   const [showProfile, setShowProfile] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showBuyGeobucks, setShowBuyGeobucks] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
   const [profileKey, setProfileKey] = useState(0);
   
   // Mode: 'default' | 'public' | 'private'
@@ -413,6 +418,29 @@ function App() {
         </button>
       </div>
 
+      {/* Buy GeoBucks floating button (stacked under shop) */}
+      <div className="fixed top-32 right-5 z-[100001]">
+        <button
+          onClick={() => setShowBuyGeobucks(true)}
+          className="w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center text-lg border border-gray-200"
+          aria-label="Buy GeoBucks"
+          title="Kúpiť GeoBucks"
+        >
+            <FiDollarSign />
+        </button>
+      </div>
+      {/* Achievements floating button (stacked under Buy GeoBucks) */}
+      <div className="fixed top-44 right-5 z-[100001]">
+        <button
+          onClick={() => setShowAchievements(true)}
+          className="w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center text-lg border border-gray-200"
+          aria-label="Achievements"
+          title="Achievements"
+        >
+            <FiAward />
+        </button>
+      </div>
+
       {showProfile && (
         <ProfileModal key={profileKey} onClose={() => setShowProfile(false)} />
       )}
@@ -428,6 +456,20 @@ function App() {
           }}
           playerGeobucks={null}
         />
+      )}
+
+      {showBuyGeobucks && (
+        <BuyGeobucksModal
+          onClose={() => setShowBuyGeobucks(false)}
+          onPurchaseSuccess={() => {
+            setProfileKey(k => k + 1);
+            setNotification({ text: 'GeoBucks zakúpené', type: 'success' });
+            setTimeout(() => setNotification(null), 3000);
+          }}
+        />
+      )}
+      {showAchievements && (
+        <AchievementsModal onClose={() => setShowAchievements(false)} />
       )}
 
       {/* Control row - mobile-first horizontal layout just above bottom panel */}
@@ -478,10 +520,10 @@ function App() {
         {mode === 'default' ? (
           <button
             onClick={() => setShowModeSelector(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl shadow-lg px-3 h-11 transition"
+            className="flex items-center gap-2 bg-[#8D9F53] text-white rounded-xl shadow-lg px-3 h-11 transition"
           >
               <span className="text-lg"><FiCompass /></span>
-            <span className="hidden sm:inline font-semibold text-sm">Explore</span>
+            <span className="hidden sm:inline font-semibold text-sm">Objaviť</span>
           </button>
         ) : (
           <>
@@ -547,7 +589,7 @@ function App() {
               {mode === 'default' ? <FiCompass /> : mode === 'public' ? <FiMap /> : <FiCamera />}
           </span>
           <span className="font-bold text-sm text-gray-900">
-            {mode === 'default' ? 'Browse' : mode === 'public' ? 'Public' : 'Private'}
+            {mode === 'default' ? 'Prehliadať' : mode === 'public' ? 'Verejný' : 'Súkromný'}
           </span>
         </div>
         
@@ -592,7 +634,7 @@ function App() {
         </div>
         {activationPending ? (
           <div className="flex items-center gap-3 bg-yellow-200 text-yellow-900 rounded-lg px-3 py-2">
-            <span className="text-lg">⏳</span>
+            <FiClock className="text-lg" />
             <span className="text-sm font-semibold">Aktivujem quest...</span>
           </div>
         ) : activeQuest ? (

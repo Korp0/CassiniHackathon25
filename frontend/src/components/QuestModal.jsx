@@ -117,7 +117,7 @@ const QuestModal = ({ quest, onClose, onStart }) => {
           )}
 
           <button
-            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-3 rounded-xl font-semibold shadow-lg transition"
+            className="w-full bg-[#8D9F53] hover:from-green-700 hover:to-green-600 text-white py-3 rounded-xl font-semibold shadow-lg transition"
             onClick={async () => { if (typeof onStart === 'function') await onStart(quest); onClose(); }}
           >
             <FiPlay className="inline mr-2" /> Začať quest
@@ -137,7 +137,7 @@ const QuestModal = ({ quest, onClose, onStart }) => {
           )}
 
           <button
-            className="w-full bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-semibold shadow-sm"
+            className="w-full bg-gray-200 border border-gray-200 text-gray-700 py-3 rounded-xl font-semibold shadow-sm"
             onClick={onClose}
           >
             Zatvoriť
