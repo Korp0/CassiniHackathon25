@@ -462,3 +462,23 @@ def buy_item(item_name: str = Query(...)):
         "message": f"You purchased {item_name}!",
         "remaining_geobucks": player["geobucks"]
     }
+
+
+@app.post("/buy_geobucks")
+def buy_geobucks(amount: int = Query(...)):
+    """
+    💰 Dummy endpoint to simulate buying GeoBucks with real money.
+    In production, this would connect to Stripe, PayPal, or in-app purchases.
+    For now, it just adds the requested amount to player's balance.
+    """
+    if amount <= 0:
+        return {"error": "Amount must be positive."}
+
+    # Simulate purchase confirmation
+    player["geobucks"] += amount
+
+    return {
+        "message": f"Successfully purchased {amount} GeoBucks!",
+        "total_geobucks": player["geobucks"],
+        "note": "This is a simulated purchase. No real money involved."
+    }

@@ -4,3 +4,6 @@ requests
 openai
 python-dotenv
 qrcode[pil]
+tifffile
+numpy
+matplotlib

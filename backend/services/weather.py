@@ -1,4 +1,8 @@
-import requests, os
+import os
+import requests
+import numpy as np
+import tifffile
+from io import BytesIO
 
 
 # === WEATHER MAPPING ===
@@ -55,43 +59,50 @@ def get_weather(lat, lon):
 # === AIR QUALITY (Sentinel-5P Copernicus) ===
 def get_air_quality(lat, lon):
     """
-    Fetches NO2 concentration from Copernicus Sentinel-5P using /process API.
+    Fetches NO2 concentration from Copernicus Sentinel-5P via the /process API.
     Returns simplified air quality data for GeoQuest.
     """
     try:
-        token = os.getenv("COPERNICUS_TOKEN")
+        # === 1. Authenticate (you can reuse token or store it in env)
+        token_url = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
+        data = {
+            "client_id": "cdse-public",
+            "grant_type": "password",
+            "username": os.getenv("COPERNICUS_USER"),  # store in .env
+            "password": os.getenv("COPERNICUS_PASS")
+        }
+        response_T = requests.post(token_url, data=data, timeout=15)
+        token = response_T.json().get("access_token")
         if not token:
-            raise Exception("Missing COPERNICUS_TOKEN")
+            raise Exception("Failed to get Copernicus access token")
 
+        # === 2. Request Sentinel-5P NO2 data
         url = "https://sh.dataspace.copernicus.eu/api/v1/process"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}"
         }
 
-        # Small bounding box (about 5km²)
-        delta = 0.05
-        bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
+        bbox = [lon, lat, lon + 0.0005, lat + 0.0005]  # small tile
 
         payload = {
             "input": {
                 "bounds": {"bbox": bbox},
                 "data": [
                     {
-                        "type": "sentinel-5p-l2",
                         "dataFilter": {
-                            "productType": "L2__NO2___",
                             "timeRange": {
-                                "from": "2025-11-01T00:00:00Z",
-                                "to": "2025-11-08T23:59:59Z"
+                                "from": "2025-11-07T00:00:00Z",
+                                "to": "2025-11-07T23:59:59Z"
                             }
-                        }
+                        },
+                        "type": "sentinel-5p-l2"
                     }
                 ]
             },
             "output": {
-                "width": 64,
-                "height": 64,
+                "width": 256,
+                "height": 128,
                 "responses": [
                     {"identifier": "default", "format": {"type": "image/tiff"}}
                 ]
@@ -116,13 +127,19 @@ def get_air_quality(lat, lon):
             print("Air quality fetch error:", resp.text)
             return {"status": "error", "description": "Failed to fetch air quality"}
 
-        # For hackathon demo purposes (no raster decoding)
-        value = 0.0004
-        if value < 0.0003:
+        # === 3. Decode TIFF result
+        tiff_data = BytesIO(resp.content)
+        img_array = tifffile.imread(tiff_data)
+
+        # Average NO2 concentration from pixels
+        avg_value = float(np.mean(img_array))
+
+        # === 4. Classify air quality
+        if avg_value < 0.0003:
             desc, status = "air is clear", "good"
-        elif value < 0.0008:
+        elif avg_value < 0.0008:
             desc, status = "air is slightly dirty", "moderate"
-        elif value < 0.0015:
+        elif avg_value < 0.0015:
             desc, status = "air is dirty", "bad"
         else:
             desc, status = "air is very dirty", "very bad"
@@ -130,7 +147,7 @@ def get_air_quality(lat, lon):
         return {
             "status": status,
             "description": desc,
-            "no2_value": value
+            "no2_value": round(avg_value, 7)
         }
 
     except Exception as e:
