@@ -1,5 +1,6 @@
 import requests, os
 
+
 # === WEATHER MAPPING ===
 def decode_weather(code: int):
     mapping = {
@@ -54,69 +55,77 @@ def get_weather(lat, lon):
 # === AIR QUALITY (Sentinel-5P Copernicus) ===
 def get_air_quality(lat, lon):
     """
-    Fetches NO2 concentration from Copernicus Sentinel-5P (simplified)
-    Returns a readable air quality status for GeoQuest.
+    Fetches NO2 concentration from Copernicus Sentinel-5P using /process API.
+    Returns simplified air quality data for GeoQuest.
     """
     try:
         token = os.getenv("COPERNICUS_TOKEN")
         if not token:
-            print("⚠️ No COPERNICUS_TOKEN found, skipping air quality check.")
-            return {"status": "unknown", "description": "token missing"}
+            raise Exception("Missing COPERNICUS_TOKEN")
 
         url = "https://sh.dataspace.copernicus.eu/api/v1/process"
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+
+        # Small bounding box (about 5km²)
+        delta = 0.05
+        bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
+
         payload = {
             "input": {
-                "bounds": {
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [lon, lat]
-                    }
-                },
+                "bounds": {"bbox": bbox},
                 "data": [
-                    {"type": "S5P_L2__NO2____", "dataFilter": {"timeRange": {"from": "2025-11-08T00:00:00Z", "to": "2025-11-09T00:00:00Z"}}}
+                    {
+                        "type": "sentinel-5p-l2",
+                        "dataFilter": {
+                            "productType": "L2__NO2___",
+                            "timeRange": {
+                                "from": "2025-11-01T00:00:00Z",
+                                "to": "2025-11-08T23:59:59Z"
+                            }
+                        }
+                    }
+                ]
+            },
+            "output": {
+                "width": 64,
+                "height": 64,
+                "responses": [
+                    {"identifier": "default", "format": {"type": "image/tiff"}}
                 ]
             },
             "evalscript": """
             //VERSION=3
             function setup() {
               return {
-                input: ["NO2_column_number_density"],
+                input: ["NO2", "dataMask"],
                 output: { bands: 1, sampleType: "FLOAT32" }
               };
             }
             function evaluatePixel(sample) {
-              return [sample.NO2_column_number_density];
+              if (sample.dataMask == 0) return [0];
+              return [sample.NO2];
             }
             """
         }
 
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        resp = requests.post(url, headers=headers, json=payload, timeout=45)
         if resp.status_code != 200:
             print("Air quality fetch error:", resp.text)
             return {"status": "error", "description": "Failed to fetch air quality"}
 
-        # Interpret roughly (fake scale)
-        # NOTE: Copernicus values are around 0.0001–0.002 mol/m²
-        value = 0.0002  # placeholder default
-        try:
-            # Could parse TIFF if using EOReader, but skip for lightweight demo
-            pass
-        except:
-            pass
-
+        # For hackathon demo purposes (no raster decoding)
+        value = 0.0004
         if value < 0.0003:
-            desc = "air is clear"
-            status = "good"
+            desc, status = "air is clear", "good"
         elif value < 0.0008:
-            desc = "air is slightly dirty"
-            status = "moderate"
+            desc, status = "air is slightly dirty", "moderate"
         elif value < 0.0015:
-            desc = "air is dirty"
-            status = "bad"
+            desc, status = "air is dirty", "bad"
         else:
-            desc = "air is very dirty"
-            status = "very bad"
+            desc, status = "air is very dirty", "very bad"
 
         return {
             "status": status,
