@@ -85,3 +85,28 @@ export const startQuest = async (quest) => {
     }, 800); // simulate network delay
   });
 };
+
+export const setActiveQuest = async (questId) => {
+  try {
+    // FastAPI expects quest_id as query param (Query(...)) on POST
+    const response = await axios.post(`${API_BASE_URL}/set_active_quest`, null, {
+      params: { quest_id: questId }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error setting active quest:', error);
+    throw error;
+  }
+};
+
+export const completeActiveQuest = async (currentLat, currentLon) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/complete_active_quest`, null, {
+      params: { current_lat: currentLat, current_lon: currentLon }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error completing active quest:', error);
+    throw error;
+  }
+};

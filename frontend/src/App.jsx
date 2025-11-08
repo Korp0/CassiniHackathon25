@@ -4,7 +4,7 @@ import QuestModal from './components/QuestModal';
 import WeatherDisplay from './components/WeatherDisplay';
 import LoadingScreen from './components/LoadingScreen';
 import { useGeolocation } from './hooks/useGeolocation';
-import { fetchQuests, fetchZoneByCode, startQuest } from './utils/api';
+import { fetchQuests, fetchZoneByCode, startQuest, setActiveQuest as apiSetActiveQuest, completeActiveQuest as apiCompleteActiveQuest } from './utils/api';
 import ProfileModal from './components/ProfileModal';
 import StartupModal from './components/StartupModal';
 
@@ -156,6 +156,17 @@ function App() {
         setQuests(prev => prev.map(q => ({ ...q, __active: (
           String(q.place) === String(quest.place) && Number(q.lat) === Number(quest.lat) && Number(q.lon) === Number(quest.lon)
         ) })));
+
+        // also inform backend about chosen active quest (if it has an id)
+        try {
+          if (quest.id) {
+            await apiSetActiveQuest(quest.id);
+          }
+        } catch (err) {
+          console.error('Failed to set active quest on backend:', err);
+          // non-fatal: show a warning but keep local state
+          setError('Quest bol aktivovaný lokálne, ale nepodarilo sa ho nastaviť na serveri.');
+        }
       } else {
         // Not OK: show message and offer to force-start
         const msg = (res && res.message) || 'Nepriaznivé podmienky.';
@@ -170,6 +181,14 @@ function App() {
           ) })));
           setNotification({ text: `Začal si quest (force): ${quest.place}`, type: 'warning' });
           setTimeout(() => setNotification(null), 4500);
+          try {
+            if (quest.id) {
+              await apiSetActiveQuest(quest.id);
+            }
+          } catch (err) {
+            console.error('Failed to set active quest on backend (force):', err);
+            setError('Quest bol aktivovaný lokálne, ale nepodarilo sa ho nastaviť na serveri.');
+          }
         }
       }
     } catch (err) {
@@ -181,15 +200,34 @@ function App() {
   };
 
   // Complete active quest
-  const handleCompleteQuest = () => {
+  const handleCompleteQuest = async () => {
     if (!activeQuest) return;
-    const name = activeQuest.place;
-    // clear active
-    setActiveQuest(null);
-    // remove __active flags
-    setQuests(prev => prev.map(q => ({ ...q, __active: false })));
-    setNotification({ text: `Dokončil si quest: ${name}`, type: 'success' });
-    setTimeout(() => setNotification(null), 4500);
+    if (!position) {
+      setError('Nemám tvoju polohu, nemôžem dokončiť quest.');
+      return;
+    }
+
+    setActivationPending(true);
+    setError(null);
+    try {
+      const resp = await apiCompleteActiveQuest(position.lat, position.lng);
+      if (resp && resp.status === 'completed') {
+        const name = activeQuest.place;
+        setActiveQuest(null);
+        setQuests(prev => prev.map(q => ({ ...q, __active: false })));
+        setNotification({ text: resp.message || `Dokončil si quest: ${name}`, type: 'success' });
+        setTimeout(() => setNotification(null), 4500);
+      } else if (resp && resp.status === 'too_far') {
+        setError(resp.message || 'Príliš ďaleko na dokončenie questu.');
+      } else {
+        setError(resp.message || 'Nepodarilo sa dokončiť quest.');
+      }
+    } catch (err) {
+      console.error('Error completing active quest:', err);
+      setError('Chyba pri dokončovaní questu. Skús znova.');
+    } finally {
+      setActivationPending(false);
+    }
   };
 
   // Loading screen
@@ -310,6 +348,20 @@ function App() {
           aria-label="Zoom out"
         >
           −
+        </button>
+
+        {/* Center on Player */}
+        <button
+          onClick={() => {
+            if (position) {
+              setMapCenter([position.lat, position.lng]);
+            }
+          }}
+          disabled={!position}
+          className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-lg text-gray-700 border border-gray-200 hover:scale-105 transition disabled:opacity-50"
+          aria-label="Center on player"
+        >
+          📍
         </button>
         
         {/* Mode-specific buttons */}
