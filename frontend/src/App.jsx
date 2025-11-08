@@ -199,8 +199,8 @@ function App() {
     <div className="w-screen h-screen relative overflow-hidden">
       {/* Mode Selector Modal */}
       {showModeSelector && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100000] p-6 animate-fadeIn">
-          <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full animate-slideUp">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[999999] p-6 animate-fadeIn">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full animate-slideUp z-[999999]">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Vyber mód</h2>
             <div className="space-y-4">
               <button
@@ -266,7 +266,7 @@ function App() {
       )}
 
       {/* Control row - mobile-first horizontal layout just above bottom panel */}
-      <div className="fixed right-4 bottom-[140px] z-[100001] flex items-center gap-2">
+      <div className="fixed right-4 bottom-[140px] z-[100000] flex items-center gap-2">
         {/* Zoom In */}
         <button
           onClick={() => {
@@ -404,7 +404,7 @@ function App() {
       )}
 
       {/* Bottom Info Bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-white/98 backdrop-blur-sm border-t border-gray-200 py-3 px-5 flex flex-col gap-2 z-[99999] shadow-2xl">
+      <div className="fixed bottom-0 left-0 w-full bg-white/98 backdrop-blur-sm border-t border-gray-200 py-3 px-5 flex flex-col gap-2 z-[100000] shadow-2xl">
         <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
           <span className="text-lg">📍</span>
           <span className="text-sm text-gray-800 font-medium flex-1 truncate">
