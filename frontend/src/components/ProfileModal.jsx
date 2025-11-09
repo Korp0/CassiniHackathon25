@@ -56,8 +56,8 @@ export default function ProfileModal({ onClose }) {
           {player && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full overflow-hidden bg-blue-200 flex items-center justify-center">
-                  <img src="/avatar.svg" alt="Avatar" className="w-full h-full object-cover" />
+                <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center p-1">
+                  <img src="/avatar.svg" alt="Avatar" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <div className="font-semibold">{player.name}</div>
