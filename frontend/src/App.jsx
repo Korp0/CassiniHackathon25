@@ -656,8 +656,8 @@ function App() {
           </div>
         ) : activeQuest ? (
           <div className="flex items-center gap-3 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-lg px-3 py-2">
-            <FiStar className="text-lg text-white" />
-            <span className="text-sm font-bold flex-1 truncate">Aktívny: {activeQuest.place}</span>
+            <img src="/active_quest.svg" alt="Active" className="w-6 h-6" />
+              <span className="text-sm font-bold flex-1 truncate">Aktívny: {activeQuest.place}</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCompleteQuest}

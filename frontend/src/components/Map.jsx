@@ -63,15 +63,12 @@ function getIconForType(type, isIndoor = false) {
   return ic;
 }
 
-// Active quest icon (green) using a simple green circle divIcon
-const activeQuestIcon = L.divIcon({
-  className: '',
-  html: `
-    <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-      <div style="width:34px;height:34px;border-radius:9999px;background:#16a34a;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;">✓</div>
-    </div>`,
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
+// Active quest icon using custom SVG from public folder (/active_quest.svg)
+const activeQuestIcon = L.icon({
+  iconUrl: '/active_quest.svg',
+  iconSize: [48, 48],
+  iconAnchor: [24, 48],
+  popupAnchor: [0, -40],
 });
 
 // Komponent na recentrovanie mapy na hráča
