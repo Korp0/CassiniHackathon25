@@ -133,15 +133,15 @@ current_public_quests = []
 player = {
     "id": 1,
     "name": "Traveler",
-    "level": 1,
-    "xp": 0,
-    "geobucks": 0,
+    "level": 7,            # ⚡ Looks experienced for demo
+    "xp": 220,
+    "geobucks": 135,       # 💰 Some currency to show off purchases
     "active_quest": None,
-    "progress": {                     # ✅ moved inside player
-        "quests_completed": 0,
-        "distance_walked": 0.0        # km
+    "progress": {
+        "quests_completed": 14,     # 🏆 Achievements in progress
+        "distance_walked": 12.7
     },
-    "achievements": []                # ✅ store unlocked achievement IDs
+    "achievements": ["walk_10km", "finish_10_quests"]  # already unlocked a few
 }
 
 
@@ -541,4 +541,37 @@ def unlock_achievement(achievement_id: str = Query(...)):
         "message": f"Achievement unlocked: {ach['name']}! You earned {ach['reward_geobucks']} GeoBucks.",
         "total_geobucks": player["geobucks"],
         "achievement": ach
+    }
+
+
+# === LEADERBOARD ===
+@app.get("/leaderboard")
+def get_leaderboard():
+    """Returns a dummy leaderboard including the current player."""
+    global player
+
+    dummy_leaderboard = [
+        {"name": "ExplorerA", "level": 12, "xp": 480, "geobucks": 620},
+        {"name": "RangerB", "level": 9, "xp": 310, "geobucks": 280},
+        {"name": "Traveler", "level": player["level"], "xp": player["xp"], "geobucks": player["geobucks"]},  # 👈 You
+        {"name": "WandererC", "level": 5, "xp": 140, "geobucks": 95},
+        {"name": "NomadD", "level": 3, "xp": 80, "geobucks": 45},
+    ]
+
+    # Sort by level and xp for realism
+    sorted_board = sorted(dummy_leaderboard, key=lambda x: (x["level"], x["xp"]), reverse=True)
+
+    # Find player rank
+    player_rank = next((i + 1 for i, p in enumerate(sorted_board) if p["name"] == "Traveler"), None)
+
+    return {
+        "leaderboard": sorted_board,
+        "player_rank": player_rank,
+        "player_summary": {
+            "name": player["name"],
+            "level": player["level"],
+            "xp": player["xp"],
+            "geobucks": player["geobucks"],
+            "rank": player_rank
+        }
     }
