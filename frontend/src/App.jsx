@@ -17,6 +17,27 @@ import AchievementsModal from './components/AchievementsModal';
 
 function App() {
   const { position, error: geoError, loading: geoLoading } = useGeolocation();
+  // Hardcoded mock coordinates: to change your map position during development,
+  // edit the string below to e.g. "48.7164,21.2611" and reload the app.
+  // Leave as empty string ('') to use real geolocation.
+  const HARDCODED_MOCK_COORDS = '49.0005,20.7655';
+
+  const parseCoords = (s) => {
+    if (!s) return null;
+    try {
+      const parts = s.split(',').map(p => p.trim());
+      if (parts.length < 2) return null;
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  };
+
+  const [mockPosition, setMockPosition] = useState(() => parseCoords(HARDCODED_MOCK_COORDS));
+  const effectivePosition = mockPosition || position;
   const [quests, setQuests] = useState([]);
   const [activeQuest, setActiveQuest] = useState(null);
   const [activationPending, setActivationPending] = useState(false);
@@ -28,6 +49,7 @@ function App() {
   const [aiMessage, setAiMessage] = useState('');
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [notification, setNotification] = useState(null); // { text, type }
+  const [globalPurchaseCode, setGlobalPurchaseCode] = useState(null); // { code, item }
   const [showProfile, setShowProfile] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showBuyGeobucks, setShowBuyGeobucks] = useState(false);
@@ -41,14 +63,14 @@ function App() {
   // Načítanie questov z backendu - iba v public mode
   useEffect(() => {
     const loadQuests = async () => {
-      if (!position) return;
+      if (!effectivePosition) return;
       if (mode !== 'public') return;
 
       try {
         setLoading(true);
         setError(null);
         
-        const data = await fetchQuests(position.lat, position.lng);
+        const data = await fetchQuests(effectivePosition.lat, effectivePosition.lng);
         
         if (data.error) {
           setError(data.error);
@@ -93,10 +115,10 @@ function App() {
       }
     };
 
-    if (position && !geoLoading && mode === 'public') {
+    if (effectivePosition && !geoLoading && mode === 'public') {
       loadQuests();
     }
-  }, [position, geoLoading, mode]);
+  }, [effectivePosition, geoLoading, mode]);
 
   // Handler pre výber módu
   const handleModeSelect = async (selectedMode, code = null) => {
@@ -113,23 +135,19 @@ function App() {
         if (data.error) {
           setError(data.error || 'Neplatné ID');
         } else {
-          const zoneQuests = data.quests || [];
+            const zoneQuests = data.quests || [];
           setQuests(zoneQuests);
-            setActiveQuest(zoneQuests[0] || null);
+            // Do not auto-activate a quest when entering private mode.
+            // Instead, pre-select the first quest so the user can review and start it explicitly.
+            setSelectedQuest(zoneQuests[0] || null);
           setAiMessage(`Zobrazené miesto: ${data.zone?.name || ''}`);
           if (zoneQuests[0]) {
             const lat = parseFloat(zoneQuests[0].lat);
             const lon = parseFloat(zoneQuests[0].lon);
             setMapCenter([lat, lon]);
           }
-            // Try to inform backend about active quest if it has an id
-            try {
-              if (zoneQuests[0] && zoneQuests[0].id) {
-                await apiSetActiveQuest(zoneQuests[0].id);
-              }
-            } catch (err) {
-              console.warn('Could not set active quest for private zone on backend:', err);
-            }
+            // Previously we auto-activated the first quest and notified the backend.
+            // We no longer auto-activate; the user must explicitly start the quest.
           setMode('private');
           setShowModeSelector(false);
         }
@@ -151,8 +169,8 @@ function App() {
     setWeather(null);
     setAiMessage('');
     // Recenter map to player's current position if available so the user sees their location
-    if (position && position.lat != null && position.lng != null) {
-      setMapCenter([position.lat, position.lng]);
+    if (effectivePosition && effectivePosition.lat != null && effectivePosition.lng != null) {
+      setMapCenter([effectivePosition.lat, effectivePosition.lng]);
     } else {
       setMapCenter(null);
     }
@@ -242,7 +260,7 @@ function App() {
   // Complete active quest
   const handleCompleteQuest = async () => {
     if (!activeQuest) return;
-    if (!position) {
+    if (!effectivePosition) {
       setError('Nemám tvoju polohu, nemôžem dokončiť quest.');
       return;
     }
@@ -251,9 +269,9 @@ function App() {
     setError(null);
     try {
       // Private mode: try QR-based completion first
-      if (mode === 'private' && activeQuest?.qr_key) {
+  if (mode === 'private' && activeQuest?.qr_key) {
         try {
-          const resp = await apiCompleteQuestByQr(activeQuest.qr_key, position.lat, position.lng);
+          const resp = await apiCompleteQuestByQr(activeQuest.qr_key, effectivePosition.lat, effectivePosition.lng);
           if (resp && resp.status === 'completed') {
             const name = activeQuest.place;
             setActiveQuest(null);
@@ -276,7 +294,7 @@ function App() {
         if (activeQuest.id) {
           try {
             await apiSetActiveQuest(activeQuest.id);
-            const resp2 = await apiCompleteActiveQuest(position.lat, position.lng);
+            const resp2 = await apiCompleteActiveQuest(effectivePosition.lat, effectivePosition.lng);
             if (resp2 && resp2.status === 'completed') {
               const name = activeQuest.place;
               setActiveQuest(null);
@@ -302,7 +320,7 @@ function App() {
       }
 
       // Default/public flow: complete active quest via server endpoint
-      const resp = await apiCompleteActiveQuest(position.lat, position.lng);
+  const resp = await apiCompleteActiveQuest(effectivePosition.lat, effectivePosition.lng);
       if (resp && resp.status === 'completed') {
         const name = activeQuest.place;
         setActiveQuest(null);
@@ -377,8 +395,8 @@ function App() {
         </div>
       )}
       {/* Mapa */}
-      <Map
-        position={position}
+    <Map
+    position={effectivePosition}
         quests={quests}
         onQuestClick={setSelectedQuest}
         centerOnPlayer={false}
@@ -387,13 +405,51 @@ function App() {
       />
 
   {/* Weather Display */}
-  {weather && <WeatherDisplay weather={weather} position={position} />}
+  {weather && <WeatherDisplay weather={weather} position={effectivePosition} />}
 
       {/* Notification Banner (shows briefly when something happens) */}
       {notification && (
         <div className={`fixed left-1/2 -translate-x-1/2 top-20 ${notification.type === 'success' ? 'bg-gradient-to-r from-green-600 to-emerald-500' : notification.type === 'warning' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'bg-gradient-to-r from-indigo-600 to-purple-600'} text-white px-5 py-3 rounded-full shadow-xl z-[100000] flex items-center gap-3 max-w-[90%] animate-slideDown`}>
             <div className="text-2xl">{notification.type === 'success' ? <FiCheckCircle /> : notification.type === 'warning' ? <FiAlertTriangle /> : <FiInfo />}</div>
           <p className="text-sm font-medium leading-snug">{notification.text}</p>
+        </div>
+      )}
+
+      {/* Global Purchase Code Banner: small top centered box shown when backend returns a redeem/pickup code */}
+      {globalPurchaseCode && (
+        <div className="fixed left-1/2 -translate-x-1/2 top-8 z-[100002]">
+          <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl flex items-center gap-4 border border-gray-200 max-w-[90vw]">
+            <div className="flex-1">
+              <div className="text-sm text-gray-700">Tu je kód na uplatnenie nákupu{globalPurchaseCode.item ? `: ${globalPurchaseCode.item}` : ''}</div>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="font-mono text-lg bg-gray-50 px-3 py-2 rounded select-all">{globalPurchaseCode.code}</div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(globalPurchaseCode.code);
+                      setNotification({ text: 'Kód skopírovaný do schránky.', type: 'success' });
+                      setTimeout(() => setNotification(null), 2500);
+                    } catch (e) {
+                      setNotification({ text: 'Kopírovanie zlyhalo. Skopírujte manuálne.', type: 'warning' });
+                      setTimeout(() => setNotification(null), 2500);
+                    }
+                  }}
+                  className="px-3 py-1 bg-white border rounded text-sm shadow-sm"
+                >
+                  Kopírovať
+                </button>
+              </div>
+            </div>
+            <div>
+              <button
+                onClick={() => setGlobalPurchaseCode(null)}
+                className="text-gray-500 hover:text-gray-800 px-2 py-1"
+                aria-label="Zavrieť"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -407,6 +463,9 @@ function App() {
             <FiUser />
         </button>
       </div>
+
+      {/* Debug: Set mock location */}
+  
 
       {/* Shop floating button (stacked under profile) */}
       <div className="fixed top-20 right-5 z-[100001]">
@@ -462,11 +521,30 @@ function App() {
       {showShop && (
         <ShopModal
           onClose={() => setShowShop(false)}
-          onPurchaseSuccess={() => {
+          onPurchaseSuccess={(res) => {
             // bump profileKey so ProfileModal remounts and reloads player if it's open
             setProfileKey(k => k + 1);
             setNotification({ text: 'Nákup uskutočnený', type: 'success' });
             setTimeout(() => setNotification(null), 3000);
+
+            // If backend returned a redeem/pickup code, show a small global banner.
+            // If backend didn't return a code, generate a demo code client-side so
+            // the user always sees the banner (useful for demos/dev).
+            const codeFromBackend = res?.code || res?.redeem_code || res?.token || res?.serial || res?.voucher;
+            const itemName = res?._itemName || res?.item || null;
+            let codeToShow = codeFromBackend || null;
+            let demo = false;
+            if (!codeToShow) {
+              // Generate a short demo code (frontend-only)
+              const rnd = Math.random().toString(36).slice(2, 8).toUpperCase();
+              codeToShow = `DEMO-${rnd}`;
+              demo = true;
+            }
+            if (codeToShow) {
+              setGlobalPurchaseCode({ code: String(codeToShow), item: itemName, demo });
+              // auto-hide after 12 seconds
+              setTimeout(() => setGlobalPurchaseCode(null), 12000);
+            }
           }}
           playerGeobucks={null}
         />
@@ -522,11 +600,11 @@ function App() {
         {/* Center on Player */}
         <button
           onClick={() => {
-            if (position) {
-              setMapCenter([position.lat, position.lng]);
+            if (effectivePosition) {
+              setMapCenter([effectivePosition.lat, effectivePosition.lng]);
             }
           }}
-          disabled={!position}
+          disabled={!effectivePosition}
           className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-lg text-gray-700 border border-gray-200 hover:scale-105 transition disabled:opacity-50"
           aria-label="Center on player"
         >
@@ -557,9 +635,9 @@ function App() {
             {mode === 'public' && (
               <button
                 onClick={() => {
-                  if (position) {
-                    setLoading(true);
-                    fetchQuests(position.lat, position.lng)
+                      if (effectivePosition) {
+                        setLoading(true);
+                        fetchQuests(effectivePosition.lat, effectivePosition.lng)
                       .then(data => {
                         const incoming = data.all_quests || [];
                         if (activeQuest) {
@@ -646,7 +724,7 @@ function App() {
         <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
           <span className="text-lg"><FiMapPin /></span>
           <span className="text-sm text-gray-800 font-medium flex-1 truncate">
-            {position ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Získavam polohu...'}
+            {effectivePosition ? `${effectivePosition.lat.toFixed(4)}, ${effectivePosition.lng.toFixed(4)}` : 'Získavam polohu...'}
           </span>
         </div>
         {activationPending ? (

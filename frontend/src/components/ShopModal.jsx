@@ -19,6 +19,8 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState({});
   const [message, setMessage] = useState(null);
+  const [purchaseCode, setPurchaseCode] = useState(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [player, setPlayer] = useState(null);
 
   useEffect(() => {
@@ -62,11 +64,23 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
     try {
       const res = await buyShopItem(item.name);
       if (res && res.error) {
-        setMessage({ type: 'error', text: res.error });
+        // Friendly handling for backend 'item not found'
+        const errText = typeof res.error === 'string' && res.error.toLowerCase().includes('not found') ? 'Položka nebola nájdená. Skontroluj názov v obchode.' : res.error;
+        setMessage({ type: 'error', text: errText });
       } else {
         const text = res && res.message ? res.message : `Kúpili ste ${item.name}.`;
         setMessage({ type: 'success', text });
-        if (onPurchaseSuccess) onPurchaseSuccess(res);
+        // If backend returned a purchase/redeem code, show it prominently
+        const code = res?.code || res?.redeem_code || res?.token || res?.serial || res?.voucher;
+        if (code) {
+          setPurchaseCode({ code: String(code), item: item.name });
+          setCodeCopied(false);
+        } else {
+          setPurchaseCode(null);
+        }
+  // Notify parent about successful purchase. Include item name so the app
+  // can show a global code notification if the backend returned one.
+  if (onPurchaseSuccess) onPurchaseSuccess({ ...res, _itemName: item.name });
         // refresh player balance after successful purchase
         try {
           const p = await getPlayer();
@@ -97,6 +111,30 @@ export default function ShopModal({ onClose, onPurchaseSuccess, playerGeobucks =
           {message && (
             <div className={`p-2 rounded mt-2 ${message.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
               {message.text}
+            </div>
+          )}
+          {purchaseCode && (
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded">
+              <div className="text-sm text-gray-700">Kód pre položku <span className="font-semibold">{purchaseCode.item}</span>:</div>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="font-mono text-lg bg-white px-3 py-2 rounded shadow-sm select-all">{purchaseCode.code}</div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(purchaseCode.code);
+                      setCodeCopied(true);
+                      setMessage({ type: 'success', text: 'Kód skopírovaný do schránky.' });
+                      setTimeout(() => setMessage(null), 2500);
+                    } catch (e) {
+                      setMessage({ type: 'error', text: 'Kopírovanie zlyhalo. Skopírujte manuálne.' });
+                    }
+                  }}
+                  className="px-3 py-2 bg-white border rounded shadow-sm text-sm"
+                >
+                  {codeCopied ? 'Skopírované' : 'Kopírovať'}
+                </button>
+              </div>
+              <div className="text-xs text-gray-500 mt-2">Nadiktujte tento kód obsluhe pri vyzdvihnutí.</div>
             </div>
           )}
           {!loading && !error && items.length === 0 && <p className="text-sm text-gray-500">Obchod je prázdny.</p>}

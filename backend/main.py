@@ -463,10 +463,10 @@ def get_shop():
     """Simple GeoBucks shop."""
     return {
         "items": [
-            {"name": "AI Travel Hint", "cost": 10},
-            {"name": "Weather Immunity (1 quest)", "cost": 25},
-            {"name": "Unlock Hidden Quest", "cost": 50},
-            {"name": "Exclusive Explorer Badge", "cost": 100}
+            {"name": "Pamätná minca", "cost": 100},
+            {"name": "1x voľný vstup", "cost": 300},
+            {"name": "Tričko", "cost": 200},
+            {"name": "Exkluzívna VIP prehliadka", "cost": 1000}
         ]
     }
 
@@ -474,10 +474,10 @@ def get_shop():
 def buy_item(item_name: str = Query(...)):
     """Buy virtual items using GeoBucks."""
     shop = {
-        "AI Travel Hint": 10,
-        "Weather Immunity (1 quest)": 25,
-        "Unlock Hidden Quest": 50,
-        "Exclusive Explorer Badge": 100
+        "Pamätná minca": 100,
+        "1x voľný vstup": 300,
+        "Tričko": 200,
+        "Exkluzívna VIP prehliadka": 1000
     }
     cost = shop.get(item_name)
     if not cost:
