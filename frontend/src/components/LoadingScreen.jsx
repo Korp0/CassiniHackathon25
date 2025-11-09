@@ -1,9 +1,12 @@
-const LoadingScreen = ({ message = 'Načítavam...' }) => {
+const LoadingScreen = ({ message = 'načítavam ...' }) => {
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center z-[9999]">
+    <div className="fixed inset-0 bg-[#EEFCCE] flex items-center justify-center z-[9999]">
       <div className="text-center flex flex-col items-center gap-6">
-        <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-        <p className="text-white text-lg font-semibold tracking-wide">{message}</p>
+        <img src="/logo.svg" alt="GeoQuest" className="w-28 h-28" />
+        <div className="text-2xl font-bold text-gray-800">GeoQuest</div>
+
+        <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-600 rounded-full animate-spin" aria-hidden="true"></div>
+        <p className="text-gray-700 text-base font-medium">{message}</p>
       </div>
     </div>
   );

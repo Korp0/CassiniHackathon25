@@ -7,10 +7,11 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { fetchQuests, fetchZoneByCode, startQuest, setActiveQuest as apiSetActiveQuest, completeActiveQuest as apiCompleteActiveQuest, completeQuestByQr as apiCompleteQuestByQr } from './utils/api';
 import ProfileModal from './components/ProfileModal';
 import ShopModal from './components/ShopModal';
-import StartupModal from './components/StartupModal';
 import BuyGeobucksModal from './components/BuyGeobucksModal';
+import LeaderboardModal from './components/LeaderboardModal';
 import { FiUser, FiShoppingCart, FiMap, FiCamera, FiCompass, FiMapPin, FiCheckCircle, FiAlertTriangle, FiInfo, FiClock, FiRefreshCw, FiLogOut, FiStar, FiX, FiDollarSign } from 'react-icons/fi';
 import { FaBullseye } from 'react-icons/fa';
+import { BiTrophy } from "react-icons/bi";
 import { FiAward } from 'react-icons/fi';
 import AchievementsModal from './components/AchievementsModal';
 
@@ -31,6 +32,7 @@ function App() {
   const [showShop, setShowShop] = useState(false);
   const [showBuyGeobucks, setShowBuyGeobucks] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [profileKey, setProfileKey] = useState(0);
   
   // Mode: 'default' | 'public' | 'private'
@@ -322,7 +324,7 @@ function App() {
 
   // Loading screen
   if (geoLoading) {
-    return <LoadingScreen message="Získavam tvoju polohu..." />;
+    return <LoadingScreen message="Načítavam ..." />;
   }
 
   return (
@@ -441,6 +443,18 @@ function App() {
         </button>
       </div>
 
+      {/* Leaderboard floating button (stacked under Achievements) */}
+      <div className="fixed top-56 right-5 z-[100001]">
+        <button
+          onClick={() => setShowLeaderboard(true)}
+          className="w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center text-lg border border-gray-200"
+          aria-label="Leaderboard"
+          title="Leaderboard"
+        >
+            <BiTrophy className="text-xl" />
+        </button>
+      </div>
+
       {showProfile && (
         <ProfileModal key={profileKey} onClose={() => setShowProfile(false)} />
       )}
@@ -470,6 +484,9 @@ function App() {
       )}
       {showAchievements && (
         <AchievementsModal onClose={() => setShowAchievements(false)} />
+      )}
+      {showLeaderboard && (
+        <LeaderboardModal onClose={() => setShowLeaderboard(false)} />
       )}
 
       {/* Control row - mobile-first horizontal layout just above bottom panel */}

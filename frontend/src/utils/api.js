@@ -185,3 +185,13 @@ export const getAchievements = async () => {
     throw error;
   }
 };
+
+export const getLeaderboard = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/leaderboard`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    throw error;
+  }
+};

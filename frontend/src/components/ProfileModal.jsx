@@ -81,10 +81,6 @@ export default function ProfileModal({ onClose }) {
                 </div>
               </div>
 
-              <div className="text-sm text-gray-700">
-                ID: <span className="font-mono">{player.id}</span>
-              </div>
-
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setShowDetails(true)}
